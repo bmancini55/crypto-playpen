@@ -1,0 +1,20 @@
+{
+  "name": "cryptotraining",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha \"src/**/*.spec.js\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "babel-eslint": "^8.0.2",
+    "chai": "^4.1.2",
+    "eslint": "^4.11.0",
+    "mocha": "^4.0.1",
+    "prettier": "^1.8.2"
+  }
+}
