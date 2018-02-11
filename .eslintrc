@@ -1,5 +1,4 @@
 {
-  "parser": "babel-eslint",
   "parserOptions": {
     "ecmaVersion": 8,
     "sourceType": "module"
@@ -10,12 +9,12 @@
     "es6": true
   },
   "extends": [
-    "eslint:recommended",
+    "eslint:recommended"
   ],
   "rules": {
     "no-console": 0,          // allow console
     "quotes": [2, "single"],  // force single quotes
     "semi": [2, "always"],    // force semi-colons
-    "comma-dangle": 0,        // allow trailing commas
+    "comma-dangle": 0        // allow trailing commas
   }
 }

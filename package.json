@@ -1,5 +1,5 @@
 {
-  "name": "cryptotraining",
+  "name": "crypto-test",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -7,9 +7,13 @@
     "test": "mocha \"src/**/*.spec.js\""
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {},
+  "author": "Brian Mancini <bmancini@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "bigi": "^1.4.2",
+    "bip39": "^2.4.0",
+    "bitcoinjs-lib": "^3.3.0"
+  },
   "devDependencies": {
     "babel-eslint": "^8.0.2",
     "chai": "^4.1.2",
