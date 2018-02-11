@@ -1,10 +1,11 @@
 {
-  "name": "crypto-test",
+  "name": "crypto-playpen",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "mocha \"src/**/*.spec.js\""
+    "test": "mocha \"src/**/*.spec.js\"",
+    "mocha": "mocha"
   },
   "keywords": [],
   "author": "Brian Mancini <bmancini@gmail.com>",

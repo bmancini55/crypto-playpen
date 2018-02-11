@@ -91,7 +91,7 @@ describe('hdnode', () => {
     it('should derive a hardeneded path', () => {
       let node = HDNode.fromBase58(
         'xprv9s21ZrQH143K2j7eUAfAmtX3DD6MdHN2bUphsjN4NdpbBEX6PXfH36PV6RAmLJbbamoxzhWsydbzXazb31MNiBEgTeBXXLNtoWfjWz7bPNY'
-      ).derivePath("'m/1'");
+      ).derivePath("m/1'");
       expect(node.getAddress()).to.equal('1AYtaNeA7JWb5UdyipvdsuWsQduxFv83gN');
     });
     it('should derive a bip44 bitcoin account', () => {
