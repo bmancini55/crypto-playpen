@@ -1,10 +1,27 @@
 const crypto = require('crypto');
 
 module.exports = {
-  merkleTree,
+  merkleRoot,
+  reverse,
+  fromHex,
+  sha256,
+  dhash,
 };
 
 // https://en.bitcoin.it/wiki/Protocol_documentation#Merkle_Trees
+
+function reverse(str) {
+  let res = '';
+  for (let i = str.length - 2; i >= 0; i -= 2) {
+    res += str[i];
+    res += str[i + 1];
+  }
+  return res;
+}
+
+function fromHex(str) {
+  return Buffer.from(str, 'hex');
+}
 
 function sha256(buffer) {
   const hash = crypto.createHash('sha256');
@@ -16,21 +33,8 @@ function dhash(buffer) {
   return sha256(sha256(buffer));
 }
 
-function merkleTree(chunks) {
-  let leaves = merkleLeaves(chunks);
-  return recurseNodes(leaves);
-}
-
-function merkleLeaves(chunks) {
-  let nodes = [];
-
-  // construct
-  for (let chunk of chunks) {
-    let hash = dhash(chunk);
-    nodes.push({ key: hash, data: chunk, left: undefined, right: undefined });
-  }
-
-  return nodes;
+function merkleRoot(chunks) {
+  return recurseNodes(chunks);
 }
 
 function recurseNodes(childNodes) {
@@ -42,8 +46,8 @@ function recurseNodes(childNodes) {
     let left = childNodes[i];
     let right = childNodes[i + 1];
 
-    let hash = dhash(Buffer.concat([left.key, right.key]));
-    nodes.push({ key: hash, left, right });
+    let hash = dhash(Buffer.concat([left, right]));
+    nodes.push(hash);
   }
 
   return recurseNodes(nodes);
