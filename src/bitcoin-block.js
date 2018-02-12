@@ -41,7 +41,7 @@ function readbytes(iter, len) {
 function varint(iter) {
   let byte = readbyte(iter);
 
-  if (byte < 0xfd) return byte;
+  if (byte < 0xfd) return bigInt(byte);
   if (byte === 0xfd) {
     return bigInt(readbyte(iter) + (readbyte(iter) << 8));
   }
@@ -84,12 +84,15 @@ let blockHash = reverse(
 console.log(genesisBlockHash, blockHash);
 
 function parseBlock(buffer) {
-  let version = buffer.readUInt32LE(0);
-  let hashPreviousBlock = buffer.slice(5, 36);
-  let hashMerkleRoot = buffer.slice(36, 68);
-  let time = buffer.readUInt32LE(68);
-  let bits = buffer.readUInt32LE(72);
-  let nonce = buffer.readUInt32LE(76);
+  let iter = buffer.entries();
+  let version = readbytes(iter, 4).readUInt32LE();
+  let hashPreviousBlock = readbytes(iter, 32);
+  let hashMerkleRoot = readbytes(iter, 32);
+  let time = readbytes(iter, 4).readUInt32LE();
+  let bits = readbytes(iter, 4).readUInt32LE();
+  let nonce = readbytes(iter, 4).readUInt32LE();
+  let txCount = varint(iter).toJSNumber();
+  let txs = parseTxs(iter);
   return {
     version,
     hashPreviousBlock: reverse(hashPreviousBlock.toString('hex')),
@@ -98,7 +101,66 @@ function parseBlock(buffer) {
     date: new Date(time * 1000).toISOString(),
     bits,
     nonce,
+    txCount,
+    txs,
   };
 }
 
-console.log(parseBlock(Buffer.from(genesisBlockHex, 'hex')));
+console.log(JSON.stringify(parseBlock(Buffer.from(genesisBlockHex, 'hex')), null, 2));
+
+function parseTxs(iter) {
+  let version = readbytes(iter, 4).readUInt32LE();
+  let inCount = varint(iter).toJSNumber();
+  let txIns = [];
+  for (let i = 0; i < inCount; i++) {
+    txIns.push(parseTxInput(iter));
+  }
+
+  let outCount = varint(iter).toJSNumber();
+  let txOuts = [];
+  for (let i = 0; i < outCount; i++) {
+    txOuts.push(parseTxOutput(iter));
+  }
+
+  return {
+    version,
+    inCount,
+    txIns,
+    outCount,
+    txOuts,
+  };
+}
+
+function parseTxInput(iter) {
+  let previousOutput = parseOutPoint(iter); // 36 bytes
+  let scriptLength = varint(iter).toJSNumber();
+  let sig = readbytes(iter, scriptLength).toString('hex');
+  let seq = readbytes(iter, 4).toString('hex');
+
+  return {
+    previousOutput,
+    scriptLength,
+    sig,
+    seq,
+  };
+}
+
+function parseOutPoint(iter) {
+  let hash = reverse(readbytes(iter, 32).toString('hex'));
+  let index = readbytes(iter, 4).readUInt32LE();
+  return {
+    hash,
+    index,
+  };
+}
+
+function parseTxOutput(iter) {
+  let value = bigInt(reverse(readbytes(iter, 8).toString('hex')), 16);
+  let scriptLength = varint(iter).toJSNumber();
+  let script = readbytes(iter, scriptLength).toString('hex');
+  return {
+    value,
+    scriptLength,
+    script,
+  };
+}
