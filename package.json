@@ -11,6 +11,7 @@
   "author": "Brian Mancini <bmancini@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "big-integer": "^1.6.26",
     "bigi": "^1.4.2",
     "bip39": "^2.4.0",
     "bitcoinjs-lib": "^3.3.0"
