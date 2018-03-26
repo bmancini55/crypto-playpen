@@ -33,8 +33,7 @@ function xor(buf1, buf2, len) {
   return res;
 }
 
-function drag(buf1, test) {
-  console.log('\n dragging...');
+function cribdrag(buf1, test) {
   for (let i = 0; i < dragLength - test.length; i++) {
     let res = xor(buf1.slice(i, i + test.length), test, test.length);
     console.log(i, res.toString());
@@ -64,7 +63,7 @@ async function run() {
       let text = await askText();
       let index1 = await askCipher();
       let index2 = await askCipher();
-      drag(xor(ciphers[index1], ciphers[index2], dragLength), Buffer.from(text));
+      cribdrag(xor(ciphers[index1], ciphers[index2], dragLength), Buffer.from(text));
     } else {
       let text = await askText();
       let cipher = await askCipher();

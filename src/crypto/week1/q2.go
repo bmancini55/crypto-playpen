@@ -38,10 +38,10 @@ func main() {
 	}
 	cipher2 = cipher2[:cipherLength]
 
-	drag(cipher1, cipher2, test)
+	cribdrag(cipher1, cipher2, test)
 }
 
-func drag(cipher1 []byte, cipher2 []byte, test []byte) {
+func cribdrag(cipher1 []byte, cipher2 []byte, test []byte) {
 	c1c2 := xor(cipher1, cipher2)
 	for i := 0; i < len(cipher1); i++ {
 		result := xor(c1c2[i:i+len(test)], test)
