@@ -9,6 +9,8 @@ import (
 )
 
 func main() {
+	blockmode := flag.String("blockmode", "cbc", "Block mode (cbc, ctr)")
+
 	encryptFlag := flag.Bool("encrypt", false, "Encrypt mode")
 	decryptFlag := flag.Bool("decrypt", false, "Decrypt mode")
 
@@ -46,7 +48,7 @@ func main() {
 		log.Fatalln("Key must be hex")
 	}
 
-	if *encryptFlag {
+	if *encryptFlag && *blockmode == "CBC" {
 		plainTextBytes := []byte(*plainText)
 		ivBytes, err := hex.DecodeString(*iv)
 
@@ -58,22 +60,32 @@ func main() {
 			log.Fatalln("iv length must be 16 bytes")
 		}
 
-		result := encrypt(keyBytes, plainTextBytes, ivBytes)
+		result := cbcEncrypt(keyBytes, plainTextBytes, ivBytes)
 		fmt.Println(hex.EncodeToString(result))
 
-	} else {
+	} else if *decryptFlag && *blockmode == "CBC" {
 		cipherBytes, err := hex.DecodeString(*cipherText)
 		if err != nil {
 			log.Fatalln("cipherBytes must be hex")
 		}
 
-		result := decrypt(keyBytes, cipherBytes)
+		result := cbcDecrypt(keyBytes, cipherBytes)
+		fmt.Println(string(result))
+	}
+
+	if *blockmode == "CTR" {
+		cipherBytes, err := hex.DecodeString(*cipherText)
+		if err != nil {
+			log.Fatalln("cipherBytes must be hex")
+		}
+
+		result := ctrDecrypt(keyBytes, cipherBytes)
 		fmt.Println(string(result))
 	}
 
 }
 
-func encrypt(keyBytes []byte, plainTextBytes []byte, ivBytes []byte) []byte {
+func cbcEncrypt(keyBytes []byte, plainTextBytes []byte, ivBytes []byte) []byte {
 
 	// determing if we need a padding block
 	padding := 16 - len(plainTextBytes)%16
@@ -133,7 +145,7 @@ func encrypt(keyBytes []byte, plainTextBytes []byte, ivBytes []byte) []byte {
 	return append(ivBytes, output...)
 }
 
-func decrypt(keyBytes []byte, cipherBytes []byte) []byte {
+func cbcDecrypt(keyBytes []byte, cipherBytes []byte) []byte {
 	ivBytes := cipherBytes[0:16]
 	cipherBytes = cipherBytes[16:]
 
@@ -171,6 +183,39 @@ func decrypt(keyBytes []byte, cipherBytes []byte) []byte {
 		}
 
 		output = append(output, m...)
+	}
+
+	return output
+}
+
+func ctrDecrypt(keyBytes []byte, cipherBytes []byte) []byte {
+	ivBytes := cipherBytes[0:16]
+	cipherBytes = cipherBytes[16:]
+
+	fmt.Println("iv", ivBytes)
+	fmt.Println("cipher", cipherBytes)
+
+	// create the aes
+	aesBlock, _ := aes.NewCipher(keyBytes)
+
+	blocks := len(cipherBytes)/16 + 1
+
+	fmt.Println("--> blocks", blocks)
+
+	output := make([]byte, 0)
+
+	for i := 0; i < blocks; i++ {
+		block := cipherBytes[i*16 : i*16+16]
+
+		m := make([]byte, 16)
+		aesBlock.Encrypt(m, ivBytes)
+
+		m = xor(block, m)
+
+		fmt.Printf("--> block: %d %s\n", i+1, m)
+
+		output = append(output, m...)
+		ivBytes[15]++
 	}
 
 	return output
