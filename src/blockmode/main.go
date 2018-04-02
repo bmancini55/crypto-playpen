@@ -34,10 +34,6 @@ func main() {
 		log.Fatalln("Plantext is required to encrypt")
 	}
 
-	if *encryptFlag && *iv == "" {
-		log.Fatalln("Initialization vector is required")
-	}
-
 	if *decryptFlag && *cipherText == "" {
 		log.Fatalln("Ciphertext is required")
 	}
@@ -75,12 +71,36 @@ func main() {
 	}
 
 	if *blockmode == "CTR" {
-		cipherBytes, err := hex.DecodeString(*cipherText)
-		if err != nil {
-			log.Fatalln("cipherBytes must be hex")
-		}
+		if *encryptFlag {
+			plainTextBytes := []byte(*plainText)
 
-		result := CTRDecrypt(keyBytes, cipherBytes)
-		fmt.Println(string(result))
+			ivBytes := make([]byte, 16, 16)
+
+			fmt.Println("iv", *iv)
+			if *iv != "" {
+				iv, err := hex.DecodeString(*iv)
+
+				if err != nil {
+					log.Fatalln("iv must be hex")
+				}
+
+				if len(iv) != 16 {
+					log.Fatalln("iv length must be 16 bytes")
+				}
+
+				ivBytes = iv
+			}
+
+			result := CTREncrypt(keyBytes, plainTextBytes, ivBytes)
+			fmt.Println(hex.EncodeToString(result))
+		} else {
+			cipherBytes, err := hex.DecodeString(*cipherText)
+			if err != nil {
+				log.Fatalln("cipherBytes must be hex")
+			}
+
+			result := CTRDecrypt(keyBytes, cipherBytes)
+			fmt.Println(string(result))
+		}
 	}
 }
