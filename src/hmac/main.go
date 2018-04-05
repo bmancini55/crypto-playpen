@@ -29,38 +29,46 @@ func readFile(filename string) []byte {
 }
 
 func hmac(data []byte) [32]byte {
+	chunkSize := 1024
 	dataLen := len(data)
-	lastChunkSize := dataLen % 1024
 
 	fmt.Println("--> data length", dataLen)
-	fmt.Println("--> last byte", lastChunkSize)
+	fmt.Println("--> last byte", dataLen%chunkSize)
 
-	startIndex := dataLen - lastChunkSize
+	// last block is likely truncated, so we want to get it to 1024 position
+	startIndex := dataLen - dataLen%chunkSize
 	endIndex := dataLen
 
+	// if for some reason we have a 1024 size mod 0 file, we need to move the
+	// start position back by 1024
+	if startIndex == endIndex {
+		startIndex -= chunkSize
+	}
+
 	var hash [32]byte
-
-	for {
+	for startIndex >= 0 {
 		fmt.Printf("processing index %d, size: %d", startIndex, endIndex-startIndex)
-		chunk := data[startIndex:endIndex]
-		if endIndex == dataLen {
-			fmt.Printf(", input: 0")
-			hash = sha256.Sum256(chunk)
-			startIndex -= 1024
-			endIndex -= lastChunkSize
-		} else {
-			input := append(chunk, hash[:]...)
-			fmt.Printf(", input: %d", len(input))
-			hash = sha256.Sum256(input)
-			startIndex -= 1024
-			endIndex -= 1024
-		}
 
+		// get the file chunk
+		chunk := data[startIndex:endIndex]
+
+		// determine the input (which is just the chunk for the last block or the block + prior hash)
+		// for all subsequent blocks
+		var input []byte
+		if endIndex == dataLen {
+			input = chunk
+		} else {
+			input = append(chunk, hash[:]...)
+		}
+		fmt.Printf(", input: %d", len(input))
+
+		// sha256 the block
+		hash = sha256.Sum256(input)
 		fmt.Printf(", %s\n", hex.EncodeToString(hash[:]))
 
-		if startIndex < 0 {
-			break
-		}
+		// set end to the prior start and decrement the start by the block size
+		endIndex = startIndex
+		startIndex -= chunkSize
 	}
 
 	return hash
