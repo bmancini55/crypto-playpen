@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const assert = require('assert');
 const EC = require('elliptic').ec;
 const ec = new EC('secp256k1');
+const HKDF = require('hkdf');
 
 function generateKey(privKeyHex) {
   let curve = crypto.createECDH('secp256k1');
@@ -70,48 +71,76 @@ function sha256(data) {
   return hash.digest();
 }
 
-let rs = {
-  pub: Buffer.from('028d7500dd4c12685d1f568b4c2b5048e8534b873319f3a8daa612b469132ec7f7', 'hex'),
-  serializeCompressed() {
-    return '028d7500dd4c12685d1f568b4c2b5048e8534b873319f3a8daa612b469132ec7f7';
-  },
-};
+function hkdf(salt, ikm) {
+  return new Promise(resolve => {
+    let runner = new HKDF('sha256', salt, ikm);
+    runner.derive('', 64, resolve);
+  });
+}
 
-let ls = generateKey('1111111111111111111111111111111111111111111111111111111111111111');
-let e = generateKey('1212121212121212121212121212121212121212121212121212121212121212');
+async function connect() {
+  let rs = {
+    pub: Buffer.from('028d7500dd4c12685d1f568b4c2b5048e8534b873319f3a8daa612b469132ec7f7', 'hex'),
+    serializeCompressed() {
+      return '028d7500dd4c12685d1f568b4c2b5048e8534b873319f3a8daa612b469132ec7f7';
+    },
+  };
 
-console.log('--> rs.pub:', rs.pub.toString('hex'));
-console.log('--> ls.priv:', ls.priv.toString('hex'));
-console.log('--> ls.pub:', ls.serializeCompressed());
-console.log('--> e.priv', e.priv.toString('hex'));
-console.log('--> e.pub', e.serializeCompressed());
+  let ls = generateKey('1111111111111111111111111111111111111111111111111111111111111111');
+  let e = generateKey('1212121212121212121212121212121212121212121212121212121212121212');
 
-// initialization stage
-console.log('\n--> init');
+  console.log('--> rs.pub:', rs.pub.toString('hex'));
+  console.log('--> ls.priv:', ls.priv.toString('hex'));
+  console.log('--> ls.pub:', ls.serializeCompressed());
+  console.log('--> e.priv', e.priv.toString('hex'));
+  console.log('--> e.pub', e.serializeCompressed());
 
-let protocolName = 'Noise_XK_secp256k1_ChaChaPoly_SHA256';
-let prologue = 'lightning';
+  // initialization stage
+  console.log('\n--> init');
 
-let h = sha256(Buffer.from(protocolName));
-let ck = h;
-console.log('--> init hash:', h.toString('hex'));
+  let protocolName = 'Noise_XK_secp256k1_ChaChaPoly_SHA256';
+  let prologue = 'lightning';
 
-h = sha256(Buffer.concat([h, Buffer.from(prologue)]));
-console.log('--> init hash:', h.toString('hex'));
+  let h = sha256(Buffer.from(protocolName));
+  let ck = h;
+  console.log('--> init hash:', h.toString('hex'));
 
-h = sha256(Buffer.concat([h, Buffer.from(rs.serializeCompressed(), 'hex')]));
-console.log('--> init hash:', h.toString('hex'));
+  h = sha256(Buffer.concat([h, Buffer.from(prologue)]));
+  console.log('--> init hash:', h.toString('hex'));
 
-// act 1
-console.log('\n--> act1');
+  h = sha256(Buffer.concat([h, Buffer.from(rs.serializeCompressed(), 'hex')]));
+  console.log('--> init hash:', h.toString('hex'));
 
-h = sha256(Buffer.concat([h, Buffer.from(e.serializeCompressed(), 'hex')]));
-console.log('--> act1 hash:', h.toString('hex'));
-assert.equal(h.toString('hex'), '9e0e7de8bb75554f21db034633de04be41a2b8a18da7a319a03c803bf02b396c');
+  // act 1
+  console.log('\n--> act1');
 
-let ss = ecdh(rs.pub, e.priv);
-console.log('--> act1 ss:', ss.toString('hex'));
-assert.equal(
-  ss.toString('hex'),
-  '1e2fb3c8fe8fb9f262f649f64d26ecf0f2c0a805a767cf02dc2d77a6ef1fdcc3'
-);
+  h = sha256(Buffer.concat([h, Buffer.from(e.serializeCompressed(), 'hex')]));
+  console.log('--> act1 hash:', h.toString('hex'));
+  assert.equal(
+    h.toString('hex'),
+    '9e0e7de8bb75554f21db034633de04be41a2b8a18da7a319a03c803bf02b396c'
+  );
+
+  let ss = ecdh(rs.pub, e.priv);
+  console.log('--> act1 ss:', ss.toString('hex'));
+  assert.equal(
+    ss.toString('hex'),
+    '1e2fb3c8fe8fb9f262f649f64d26ecf0f2c0a805a767cf02dc2d77a6ef1fdcc3'
+  );
+
+  let temp_k1 = await hkdf(ck, ss);
+  ck = temp_k1.slice(0, 32);
+  temp_k1 = temp_k1.slice(32);
+  console.log('--> act1 ck:', ck.toString('hex'));
+  console.log('--> act1 temp_k1:', temp_k1.toString('hex'));
+  assert.equal(
+    ck.toString('hex'),
+    'b61ec1191326fa240decc9564369dbb3ae2b34341d1e11ad64ed89f89180582f'
+  );
+  assert.equal(
+    temp_k1.toString('hex'),
+    'e68f69b7f096d7917245f5e5cf8ae1595febe4d4644333c99f9c4a1282031c9f'
+  );
+}
+
+connect().catch(console.error);

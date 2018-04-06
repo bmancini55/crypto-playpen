@@ -18,7 +18,8 @@
     "bip39": "^2.4.0",
     "bitcoinjs-lib": "^3.3.2",
     "bitcore-lib": "^0.15.0",
-    "elliptic": "^6.4.0"
+    "elliptic": "^6.4.0",
+    "hkdf": "0.0.2"
   },
   "devDependencies": {
     "babel-eslint": "^8.0.2",
