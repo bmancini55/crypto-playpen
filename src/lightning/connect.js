@@ -3,6 +3,7 @@ const assert = require('assert');
 const EC = require('elliptic').ec;
 const ec = new EC('secp256k1');
 const HKDF = require('hkdf');
+const chacha = require('chacha');
 
 function generateKey(privKeyHex) {
   let curve = crypto.createECDH('secp256k1');
@@ -19,6 +20,12 @@ function generateKey(privKeyHex) {
     },
     curve,
   };
+}
+
+function sha256(data) {
+  let hash = crypto.createHash('sha256');
+  hash.update(data);
+  return hash.digest();
 }
 
 function ecdh(rk, k) {
@@ -65,17 +72,19 @@ function ecdh(rk, k) {
   return sha256(Buffer.from(shared, 'hex'));
 }
 
-function sha256(data) {
-  let hash = crypto.createHash('sha256');
-  hash.update(data);
-  return hash.digest();
-}
-
 function hkdf(salt, ikm) {
   return new Promise(resolve => {
     let runner = new HKDF('sha256', salt, ikm);
     runner.derive('', 64, resolve);
   });
+}
+
+function encryptWithAD(k, n, ad, plaintext) {
+  const cipher = chacha.createCipher(k, n);
+  cipher.setAAD(ad);
+  cipher.update(plaintext);
+  cipher.final();
+  return cipher.getAuthTag();
 }
 
 async function connect() {
@@ -140,6 +149,24 @@ async function connect() {
   assert.equal(
     temp_k1.toString('hex'),
     'e68f69b7f096d7917245f5e5cf8ae1595febe4d4644333c99f9c4a1282031c9f'
+  );
+
+  let c = encryptWithAD(temp_k1, Buffer.alloc(12), h, '');
+  console.log('--> act1 c:', c.toString('hex'));
+  assert.equal(c.toString('hex'), '0df6086551151f58b8afe6c195782c6a');
+
+  h = sha256(Buffer.concat([h, c]));
+  console.log('--> act1 h:', h.toString('hex'));
+  assert.equal(
+    h.toString('hex'),
+    '9d1ffbb639e7e20021d9259491dc7b160aab270fb1339ef135053f6f2cebe9ce'
+  );
+
+  let m = Buffer.concat([Buffer.alloc(1), Buffer.from(e.serializeCompressed(), 'hex'), c]);
+  console.log('--> act1 m:', m.toString('hex'));
+  assert.equal(
+    m.toString('hex'),
+    '00036360e856310ce5d294e8be33fc807077dc56ac80d95d9cd4ddbd21325eff73f70df6086551151f58b8afe6c195782c6a'
   );
 }
 
