@@ -78,7 +78,7 @@ function ecdh(rk, k) {
   return sha256(Buffer.from(shared, 'hex'));
 }
 
-function hkdf(salt, ikm) {
+async function hkdf(salt, ikm) {
   return new Promise(resolve => {
     let runner = new HKDF('sha256', salt, ikm);
     runner.derive('', 64, resolve);
@@ -86,11 +86,18 @@ function hkdf(salt, ikm) {
 }
 
 function encryptWithAD(k, n, ad, plaintext) {
+  let print = _print.bind(undefined, '    -->');
+
   const cipher = chacha.createCipher(k, n);
   cipher.setAAD(ad);
-  cipher.update(plaintext);
+  let pad = cipher.update(plaintext);
+  print('chacha20:', pad);
+
   cipher.final();
-  return cipher.getAuthTag();
+  let tag = cipher.getAuthTag();
+  print('poly1305:', tag);
+
+  return Buffer.concat([pad, tag]);
 }
 
 function decryptWithAD(k, n, ad, ciphertext) {
@@ -173,18 +180,18 @@ async function connect() {
     'e68f69b7f096d7917245f5e5cf8ae1595febe4d4644333c99f9c4a1282031c9f'
   );
 
-  let c = encryptWithAD(temp_k1, Buffer.alloc(12), h, '');
-  print('c:', c);
-  assert.equal(c.toString('hex'), '0df6086551151f58b8afe6c195782c6a');
+  let t = encryptWithAD(temp_k1, Buffer.alloc(12), h, '');
+  print('t:', t);
+  assert.equal(t.toString('hex'), '0df6086551151f58b8afe6c195782c6a');
 
-  h = sha256(Buffer.concat([h, c]));
+  h = sha256(Buffer.concat([h, t]));
   print('h:', h);
   assert.equal(
     h.toString('hex'),
     '9d1ffbb639e7e20021d9259491dc7b160aab270fb1339ef135053f6f2cebe9ce'
   );
 
-  let m = Buffer.concat([Buffer.alloc(1), e.compressed(), c]);
+  let m = Buffer.concat([Buffer.alloc(1), e.compressed(), t]);
   print('m:', m);
   assert.equal(
     m.toString('hex'),
@@ -206,7 +213,7 @@ async function connect() {
   // 2. parse th read message m into v,re, and c
   let v = m.slice(0, 1)[0];
   let re = m.slice(1, 34);
-  c = m.slice(34);
+  let c = m.slice(34);
   print('v:', v);
   print('re:', re);
   print('c:', c);
@@ -258,6 +265,78 @@ async function connect() {
   assert.equal(
     h.toString('hex'),
     '90578e247e98674e661013da3c5c1ca6a8c8f48c90b485c0dfa1494e23d56d72'
+  );
+
+  // act 3
+  print = _print.bind(undefined, '--> act3');
+  console.log();
+  print();
+
+  // 1. encrypt with chacha
+  c = encryptWithAD(temp_k2, Buffer.from([0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]), h, ls.compressed());
+  print('c:', c);
+  assert.equal(
+    c.toString('hex'),
+    'b9e3a702e93e3a9948c2ed6e5fd7590a6e1c3a0344cfc9d5b57357049aa22355361aa02e55a8fc28fef5bd6d71ad0c3822'
+  );
+
+  // 2. h = sha256(h || c)
+  h = sha256(Buffer.concat([h, c]));
+  print('h:', h);
+  assert.equal(
+    h.toString('hex'),
+    '5dcb5ea9b4ccc755e0e3456af3990641276e1d5dc9afd82f974d90a47c918660'
+  );
+
+  // 3. ss = ECDH(re, s.priv)
+  ss = ecdh(re, ls.priv);
+  print('ss:', ss);
+  assert.equal(
+    ss.toString('hex'),
+    'b36b6d195982c5be874d6d542dc268234379e1ae4ff1709402135b7de5cf0766'
+  );
+
+  // 4. ck, temp_k3 = HKDF(ck, ss)
+  let temp_k3 = await hkdf(ck, ss);
+  ck = temp_k3.slice(0, 32);
+  temp_k3 = temp_k3.slice(32);
+  print('ck:', ck);
+  print('temp_k3:', temp_k3);
+  assert.equal(
+    ck.toString('hex'),
+    '919219dbb2920afa8db80f9a51787a840bcf111ed8d588caf9ab4be716e42b01'
+  );
+  assert.equal(
+    temp_k3.toString('hex'),
+    '981a46c820fb7a241bc8184ba4bb1f01bcdfafb00dde80098cb8c38db9141520'
+  );
+
+  // 5. t = encryptWithAD(temp_k3, 0, h, zero)
+  t = encryptWithAD(temp_k3, Buffer.alloc(12), h, '');
+  print('t:', t);
+  assert.equal(t.toString('hex'), '8dc68b1c466263b47fdf31e560e139ba');
+
+  // 6. sk, rk = hkdf(ck, zero)
+  let sk = await hkdf(ck, '');
+  let rk = sk.slice(32);
+  sk = sk.slice(0, 32);
+  print('sk:', sk);
+  print('rk:', rk);
+  assert.equal(
+    sk.toString('hex'),
+    '969ab31b4d288cedf6218839b27a3e2140827047f2c0f01bf5c04435d43511a9'
+  );
+  assert.equal(
+    rk.toString('hex'),
+    'bb9020b8965f4df047e07f955f3c4b88418984aadc5cdb35096b9ea8fa5c3442'
+  );
+
+  // send m = 0 || c || t
+  m = Buffer.concat([Buffer.alloc(1), c, t]);
+  print('m:', m);
+  assert.equal(
+    m.toString('hex'),
+    '00b9e3a702e93e3a9948c2ed6e5fd7590a6e1c3a0344cfc9d5b57357049aa22355361aa02e55a8fc28fef5bd6d71ad0c38228dc68b1c466263b47fdf31e560e139ba'
   );
 }
 
