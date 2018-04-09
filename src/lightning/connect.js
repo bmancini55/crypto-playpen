@@ -85,17 +85,17 @@ async function hkdf(salt, ikm) {
   });
 }
 
-function encryptWithAD(k, n, ad, plaintext) {
+function encryptWithAD(k, n, ad, plaintext, debug) {
   let print = _print.bind(undefined, '    -->');
 
   const cipher = chacha.createCipher(k, n);
   cipher.setAAD(ad);
   let pad = cipher.update(plaintext);
-  print('chacha20:', pad);
+  if (debug) print('chacha20:', pad);
 
   cipher.final();
   let tag = cipher.getAuthTag();
-  print('poly1305:', tag);
+  if (debug) print('poly1305:', tag);
 
   return Buffer.concat([pad, tag]);
 }
@@ -147,7 +147,8 @@ async function connect() {
   h = sha256(Buffer.concat([h, rs.compressed()]));
   print('hash:', h);
 
-  // act 1
+  // ACT 1
+  //
   print = _print.bind(undefined, '--> act1');
   console.log();
   print();
@@ -198,7 +199,8 @@ async function connect() {
     '00036360e856310ce5d294e8be33fc807077dc56ac80d95d9cd4ddbd21325eff73f70df6086551151f58b8afe6c195782c6a'
   );
 
-  // act 2
+  // ACT 2
+  //
   print = _print.bind(undefined, '--> act2');
   console.log();
   print();
@@ -267,7 +269,8 @@ async function connect() {
     '90578e247e98674e661013da3c5c1ca6a8c8f48c90b485c0dfa1494e23d56d72'
   );
 
-  // act 3
+  // ACT 3
+  //
   print = _print.bind(undefined, '--> act3');
   console.log();
   print();
@@ -338,6 +341,98 @@ async function connect() {
     m.toString('hex'),
     '00b9e3a702e93e3a9948c2ed6e5fd7590a6e1c3a0344cfc9d5b57357049aa22355361aa02e55a8fc28fef5bd6d71ad0c38228dc68b1c466263b47fdf31e560e139ba'
   );
+
+  // SEND MESSAGE
+  //
+  print = _print.bind(undefined, '--> msg 0:');
+  console.log();
+  print();
+
+  m = Buffer.from('68656c6c6f', 'hex');
+  print('m:', m);
+
+  // step 1/2. serialize m length into int16
+  let l = Buffer.alloc(2);
+  l.writeUInt16BE(m.length);
+
+  // step 3. encrypt l, using chachapoly1305, sn, sk)
+  let sn = Buffer.alloc(12);
+  let lc = encryptWithAD(sk, sn, Buffer.alloc(0), l);
+  print('sn:', sn);
+  print('lc:', lc);
+  assert.equal(lc.toString('hex'), 'cf2b30ddf0cf3f80e7c35a6e6730b59fe802');
+
+  // step 3a: increment sn, since JS sucks, we can only read UInt32
+  // a real implementation of this would need to read the entire UInt64 into BN and do the maths
+  // then convert back to a buffer
+  sn.writeUInt32LE(sn.readUInt32LE(4) + 1, 4);
+  print('sn:', sn);
+
+  // step 4 encrypt m using chachapoly1305, sn, sk
+  c = encryptWithAD(sk, sn, Buffer.alloc(0), m);
+  print('c:', c);
+  assert.equal(c.toString('hex'), '473180f396d88a8fb0db8cbcf25d2f214cf9ea1d95');
+
+  // step 4a: increment sn, since JS sucks, we can only read UInt32
+  // a real implementation of this would need to read the entire UInt64 into BN and do the maths
+  // then convert back to a buffer
+  sn.writeUInt32LE(sn.readUInt32LE(4) + 1, 4);
+  print('sn:', sn);
+
+  // step 5 send over wire
+  m = Buffer.concat([lc, c]);
+  print('m:', m);
+  assert.equal(
+    m.toString('hex'),
+    'cf2b30ddf0cf3f80e7c35a6e6730b59fe802473180f396d88a8fb0db8cbcf25d2f214cf9ea1d95'
+  );
+
+  // TEST KEY ROTATION
+  //
+  function incrementNonce() {
+    let newValue = sn.readUInt16LE(4) + 1;
+    sn.writeUInt16LE(newValue, 4);
+    return newValue;
+  }
+
+  async function rotateKeys() {
+    print('rotating at', sn.readUInt16LE(4));
+    ck = await hkdf(ck, sk);
+    sk = ck.slice(32);
+    ck = ck.slice(0, 32);
+    print('ck:', ck);
+    print('sk:', sk);
+
+    sn = Buffer.alloc(12);
+  }
+
+  console.log('\n--> messages');
+  const ROTATE = 1000;
+  for (let i = 1; i <= 1001; i++) {
+    print = _print.bind(undefined, `--> msg ${i}:`);
+
+    m = Buffer.from('68656c6c6f', 'hex');
+    l = Buffer.alloc(2);
+    l.writeUInt16BE(m.length);
+    lc = encryptWithAD(sk, sn, Buffer.alloc(0), l);
+    if (incrementNonce() >= ROTATE) await rotateKeys();
+
+    c = encryptWithAD(sk, sn, Buffer.alloc(0), m);
+    if (incrementNonce() >= ROTATE) await rotateKeys();
+
+    m = Buffer.concat([lc, c]);
+    let tests = {
+      1: '72887022101f0b6753e0c7de21657d35a4cb2a1f5cde2650528bbc8f837d0f0d7ad833b1a256a1',
+      500: '178cb9d7387190fa34db9c2d50027d21793c9bc2d40b1e14dcf30ebeeeb220f48364f7a4c68bf8',
+      501: '1b186c57d44eb6de4c057c49940d79bb838a145cb528d6e8fd26dbe50a60ca2c104b56b60e45bd',
+      1000: '4a2f3cc3b5e78ddb83dcb426d9863d9d9a723b0337c89dd0b005d89f8d3c05c52b76b29b740f09',
+      1001: '2ecd8c8a5629d0d02ab457a0fdd0f7b90a192cd46be5ecb6ca570bfc5e268338b1a16cf4ef2d36',
+    };
+    if (tests[i]) {
+      print('m:', m);
+      assert.equal(m.toString('hex'), tests[i]);
+    }
+  }
 }
 
 connect().catch(console.error);
