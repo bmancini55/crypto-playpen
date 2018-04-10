@@ -60,3 +60,4 @@ typings/
 # MacOS
 .DS_Store
 
+wallet.dat
