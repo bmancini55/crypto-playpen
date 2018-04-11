@@ -4,19 +4,25 @@ const NoiseState = require('./noise-state');
 
 describe('noise-state', () => {
   let sut;
-  before(async () => {
-    let rs = {
-      pub: Buffer.from('028d7500dd4c12685d1f568b4c2b5048e8534b873319f3a8daa612b469132ec7f7', 'hex'),
-      compressed() {
-        return Buffer.from(
-          '028d7500dd4c12685d1f568b4c2b5048e8534b873319f3a8daa612b469132ec7f7',
-          'hex'
-        );
-      },
-    };
+  let rs = {
+    pub: Buffer.from('028d7500dd4c12685d1f568b4c2b5048e8534b873319f3a8daa612b469132ec7f7', 'hex'),
+    compressed() {
+      return Buffer.from(
+        '028d7500dd4c12685d1f568b4c2b5048e8534b873319f3a8daa612b469132ec7f7',
+        'hex'
+      );
+    },
+  };
+  let ls = generateKey('1111111111111111111111111111111111111111111111111111111111111111');
+  let es = generateKey('1212121212121212121212121212121212121212121212121212121212121212');
+  let sent = [
+    Buffer.from(
+      'cf2b30ddf0cf3f80e7c35a6e6730b59fe802473180f396d88a8fb0db8cbcf25d2f214cf9ea1d95',
+      'hex'
+    ),
+  ];
 
-    let ls = generateKey('1111111111111111111111111111111111111111111111111111111111111111');
-    let es = generateKey('1212121212121212121212121212121212121212121212121212121212121212');
+  before(async () => {
     sut = new NoiseState({ ls, rs, es });
   });
 
@@ -72,6 +78,10 @@ describe('noise-state', () => {
     });
 
     describe('send message', () => {
+      before(() => {
+        sut.rk = sut.sk; // do this so we can test receiving later!
+      });
+
       it('should encrypt message properly', async () => {
         let m = await sut.encryptMessage(Buffer.from('68656c6c6f', 'hex'));
         expect(m).to.deep.equal(
@@ -81,13 +91,16 @@ describe('noise-state', () => {
           )
         );
       });
+
       it('should rotate the sending nonce', () => {
         expect(sut.sn).to.deep.equal(Buffer.from('000000000200000000000000', 'hex'));
       });
+
       it('should rotate keys correctly', async () => {
         let input = Buffer.from('68656c6c6f', 'hex');
         for (let i = 1; i < 1001; i++) {
           let m = await sut.encryptMessage(input);
+          sent.push(m);
           let tests = {
             1: '72887022101f0b6753e0c7de21657d35a4cb2a1f5cde2650528bbc8f837d0f0d7ad833b1a256a1',
             500: '178cb9d7387190fa34db9c2d50027d21793c9bc2d40b1e14dcf30ebeeeb220f48364f7a4c68bf8',
@@ -98,6 +111,41 @@ describe('noise-state', () => {
           if (tests[i]) {
             expect(m).to.deep.equal(Buffer.from(tests[i], 'hex'), 'failed on message ' + i);
           }
+        }
+      });
+    });
+
+    describe('receive message', () => {
+      before(async () => {
+        sut = new NoiseState({ ls, rs, es });
+        await sut.initialize();
+        await sut.initiatorAct1();
+        await sut.initiatorAct2Act3(
+          Buffer.from(
+            '0002466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f276e2470b93aac583c9ef6eafca3f730ae',
+            'hex'
+          )
+        );
+        sut.rk = sut.sk;
+      });
+
+      it('should decrypt the length', async () => {
+        let l = await sut.decryptLength(sent[0].slice(0, 18));
+        expect(l).to.equal(5);
+      });
+
+      it('should decrypt the message', async () => {
+        let m = await sut.decryptMessage(sent[0].slice(18));
+        expect(m).to.deep.equal(Buffer.from('hello'));
+      });
+
+      it('should rotate keys correctly', async () => {
+        for (let i = 1; i < 1001; i++) {
+          let l = await sut.decryptLength(sent[i].slice(0, 18));
+          let m = await sut.decryptMessage(sent[i].slice(18));
+
+          expect(l).to.equal(5, 'failed on message' + i);
+          expect(m).to.deep.equal(Buffer.from('hello'), 'failed on message' + i);
         }
       });
     });

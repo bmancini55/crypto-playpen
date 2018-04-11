@@ -75,6 +75,18 @@ function ccpEncrypt(k, n, ad, plaintext) {
 function ccpDecrypt(k, n, ad, ciphertext) {
   const decipher = chacha.createDecipher(k, n);
   decipher.setAAD(ad);
-  decipher.setAuthTag(ciphertext);
-  return decipher.final();
+
+  if (ciphertext.length == 16) {
+    decipher.setAuthTag(ciphertext);
+    return decipher.final();
+  }
+  if (ciphertext.length > 16) {
+    let tag = ciphertext.slice(ciphertext.length - 16);
+    let pad = ciphertext.slice(0, ciphertext.length - 16);
+    decipher.setAuthTag(tag);
+    let m = decipher.update(pad);
+    let f = decipher.final();
+    m = Buffer.concat([m, f]);
+    return m;
+  }
 }

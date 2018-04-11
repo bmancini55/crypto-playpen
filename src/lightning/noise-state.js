@@ -113,7 +113,6 @@ class NoiseState {
   }
 
   async encryptMessage(m) {
-    winston.debug('encrypting message');
     // step 1/2. serialize m length into int16
     let l = Buffer.alloc(2);
     l.writeUInt16BE(m.length);
@@ -134,17 +133,47 @@ class NoiseState {
     return Buffer.concat([lc, c]);
   }
 
+  async decryptLength(lc) {
+    let l = ccpDecrypt(this.rk, this.rn, Buffer.alloc(0), lc);
+
+    if (this._incrementRecievingNonce() >= 1000) await this._rotateRecievingKeys();
+
+    return l.readUInt16BE();
+  }
+
+  async decryptMessage(c) {
+    let m = ccpDecrypt(this.rk, this.rn, Buffer.alloc(0), c);
+
+    if (this._incrementRecievingNonce() >= 1000) await this._rotateRecievingKeys();
+
+    return m;
+  }
+
   _incrementSendingNonce() {
     let newValue = this.sn.readUInt16LE(4) + 1;
     this.sn.writeUInt16LE(newValue, 4);
     return newValue;
   }
 
+  _incrementRecievingNonce() {
+    let newValue = this.rn.readUInt16LE(4) + 1;
+    this.rn.writeUInt16LE(newValue, 4);
+    return newValue;
+  }
+
   async _rotateSendingKeys() {
+    winston.debug('rotating sending key');
     let result = await hkdf(this.ck, this.sk);
     this.sk = result.slice(32);
     this.ck = result.slice(0, 32);
     this.sn = Buffer.alloc(12);
+  }
+  async _rotateRecievingKeys() {
+    winston.debug('rotating receiving key');
+    let result = await hkdf(this.ck, this.rk);
+    this.rk = result.slice(32);
+    this.ck = result.slice(0, 32);
+    this.rn = Buffer.alloc(12);
   }
 }
 

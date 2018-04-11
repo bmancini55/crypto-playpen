@@ -27,8 +27,9 @@ class PeerClient {
     this.socket.on('close', this._onClose.bind(this));
   }
 
-  send(m) {
+  async send(m) {
     winston.debug('sending', m.toString('hex'));
+    m = await this.noiseState.encryptMessage(m);
     this.socket.write(m);
   }
 
@@ -44,7 +45,8 @@ class PeerClient {
     try {
       await this.noiseState.initialize();
       let m = await this.noiseState.initiatorAct1();
-      this.send(m);
+      winston.debug('sending', m.toString('hex'));
+      this.socket.write(m);
       this.completedAct = 1;
     } catch (err) {
       winston.error(err);
@@ -61,10 +63,19 @@ class PeerClient {
         let m = this._buffer.slice(0, 50);
         this._buffer = this._buffer.slice(50);
         m = await this.noiseState.initiatorAct2Act3(m);
-        this.send(m);
+        winston.debug('sending', m.toString('hex'));
+        this.socket.write(m);
         this.completedAct = 3;
-      } else {
-        // wait for standard message length...
+      } else if (this.completedAct === 3) {
+        let lc = this._buffer.slice(0, 18);
+        this._buffer = this._buffer.slice(18);
+        let l = await this.noiseState.decryptLength(lc);
+        winston.debug('message length', l);
+
+        let c = this._buffer.slice(0, l + 16);
+        this._buffer = this._buffer.slice(l + 16);
+        let m = await this.noiseState.decryptMessage(c);
+        winston.debug('message', m.toString('hex'));
       }
     } catch (err) {
       winston.error(err);
