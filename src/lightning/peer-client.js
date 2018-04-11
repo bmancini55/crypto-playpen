@@ -14,7 +14,7 @@ class PeerClient {
     this.completedAct = 0;
     this._buffer = Buffer.alloc(0);
 
-    setInterval(this.ping.bind(this), 30000);
+    setInterval(this.ping.bind(this), 60000);
   }
 
   async ping() {
