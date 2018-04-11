@@ -92,7 +92,8 @@ class PeerClient {
         let c = this._buffer.slice(0, l + 16);
         this._buffer = this._buffer.slice(l + 16);
         let m = await this.noiseState.decryptMessage(c);
-        winston.debug('received', messages.deserialize(m));
+        m = messages.deserialize(m);
+        winston.debug('received', JSON.stringify(m));
       }
     } catch (err) {
       winston.error(err);

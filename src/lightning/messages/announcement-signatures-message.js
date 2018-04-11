@@ -1,10 +1,10 @@
 class AnnouncementSignaturesMessage {
-  constructor({ channel_id, short_channel_id, node_signature, bitcoin_signature }) {
+  constructor() {
     this.type = 259;
-    this.channel_id = channel_id;
-    this.short_channel_id = short_channel_id;
-    this.node_signature = node_signature;
-    this.bitcoin_signature = bitcoin_signature;
+    this.channel_id;
+    this.short_channel_id;
+    this.node_signature;
+    this.bitcoin_signature;
   }
 
   static deserialize(payload) {

@@ -2,31 +2,19 @@ let BufferReader = require('../buffer-reader');
 let BufferWriter = require('../buffer-writer');
 
 class ChannelAnnouncement {
-  constructor({
-    node_signature_1,
-    node_signature_2,
-    bitcoin_signature_1,
-    bitcoin_signature_2,
-    features,
-    chain_hash,
-    short_channel_id,
-    node_id_1,
-    node_id_2,
-    bitcoin_key_1,
-    bitcoin_key_2,
-  }) {
+  constructor() {
     this.type = 256;
-    this.node_signature_1 = node_signature_1;
-    this.node_signature_2 = node_signature_2;
-    this.bitcoin_signature_1 = bitcoin_signature_1;
-    this.bitcoin_signature_2 = bitcoin_signature_2;
-    this.features = features;
-    this.chain_hash = chain_hash;
-    this.short_channel_id = short_channel_id;
-    this.node_id_1 = node_id_1;
-    this.node_id_2 = node_id_2;
-    this.bitcoin_key_1 = bitcoin_key_1;
-    this.bitcoin_key_2 = bitcoin_key_2;
+    this.node_signature_1;
+    this.node_signature_2;
+    this.bitcoin_signature_1;
+    this.bitcoin_signature_2;
+    this.features;
+    this.chain_hash;
+    this.short_channel_id;
+    this.node_id_1;
+    this.node_id_2;
+    this.bitcoin_key_1;
+    this.bitcoin_key_2;
   }
 
   static deserialize(payload) {

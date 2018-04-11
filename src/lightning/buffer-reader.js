@@ -2,7 +2,7 @@ let assert = require('assert');
 
 class BufferReader {
   static from(buffer) {
-    return new Buffer(buffer);
+    return new BufferReader(buffer);
   }
 
   constructor(buffer) {
@@ -32,7 +32,7 @@ class BufferReader {
   }
 
   readBytes(len) {
-    assert(this.position + len < this.buffer.len, 'out of bounds');
+    assert(this.position + len <= this.buffer.length, 'out of bounds');
     let result = this.buffer.slice(this.position, len);
     this.position += len;
     return result;

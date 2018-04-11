@@ -6,6 +6,7 @@ const typeMap = {
   18: require('./ping-message'),
   19: require('./pong-message'),
   256: require('./channel-announcement'),
+  258: require('./channel-update'),
   259: require('./announcement-signatures-message'),
 };
 
