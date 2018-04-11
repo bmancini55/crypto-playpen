@@ -2,6 +2,7 @@ const net = require('net');
 const winston = require('winston');
 const NoiseState = require('./noise-state');
 const { generateKey } = require('./key');
+const messages = require('./messages/message-factory');
 
 class PeerClient {
   constructor({ localSecret, remoteSecret, host, port = 9735 }) {
@@ -12,6 +13,18 @@ class PeerClient {
 
     this.completedAct = 0;
     this._buffer = Buffer.alloc(0);
+
+    setInterval(this.ping.bind(this), 30000);
+  }
+
+  async ping() {
+    try {
+      let pingMessage = messages.construct(18);
+      pingMessage.num_pong_bytes = 8;
+      await this.sendMessage(pingMessage);
+    } catch (ex) {
+      winston.error(ex);
+    }
   }
 
   async connect() {
@@ -27,8 +40,9 @@ class PeerClient {
     this.socket.on('close', this._onClose.bind(this));
   }
 
-  async send(m) {
-    winston.debug('sending', m.toString('hex'));
+  async sendMessage(m) {
+    winston.debug('sending', m);
+    m = m.serialize();
     m = await this.noiseState.encryptMessage(m);
     this.socket.write(m);
   }
@@ -66,16 +80,19 @@ class PeerClient {
         winston.debug('sending', m.toString('hex'));
         this.socket.write(m);
         this.completedAct = 3;
+
+        // send init message
+        await this.sendMessage(messages.construct(16));
+        //
       } else if (this.completedAct === 3) {
         let lc = this._buffer.slice(0, 18);
         this._buffer = this._buffer.slice(18);
         let l = await this.noiseState.decryptLength(lc);
-        winston.debug('message length', l);
 
         let c = this._buffer.slice(0, l + 16);
         this._buffer = this._buffer.slice(l + 16);
         let m = await this.noiseState.decryptMessage(c);
-        winston.debug('message', m.toString('hex'));
+        winston.debug('received', messages.deserialize(m));
       }
     } catch (err) {
       winston.error(err);
