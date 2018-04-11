@@ -1,9 +1,18 @@
 const crypto = require('crypto');
+const elliptic = require('elliptic');
+const secp256k1 = new elliptic.ec('secp256k1');
+const HKDF = require('hkdf');
+const chacha = require('chacha');
 
 module.exports = {
   aesEncrypt,
   aesDecrypt,
   generateKey,
+  sha256,
+  ecdh,
+  hkdf,
+  ccpEncrypt,
+  ccpDecrypt,
 };
 
 function aesEncrypt({ key, buffer }) {
@@ -29,4 +38,43 @@ function generateKey({ passphrase, salt }) {
     salt,
     key,
   };
+}
+
+function sha256(data) {
+  let hash = crypto.createHash('sha256');
+  hash.update(data);
+  return hash.digest();
+}
+
+function ecdh(rk, k) {
+  let priv = secp256k1.keyFromPrivate(k);
+  let pub = secp256k1.keyFromPublic(rk);
+  let shared = pub.getPublic().mul(priv.getPrivate());
+  shared = secp256k1.keyFromPublic(shared).getPublic(true, 'hex');
+  return sha256(Buffer.from(shared, 'hex'));
+}
+
+async function hkdf(salt, ikm) {
+  return new Promise(resolve => {
+    let runner = new HKDF('sha256', salt, ikm);
+    runner.derive('', 64, resolve);
+  });
+}
+
+function ccpEncrypt(k, n, ad, plaintext) {
+  const cipher = chacha.createCipher(k, n);
+  cipher.setAAD(ad);
+  let pad = cipher.update(plaintext);
+
+  cipher.final();
+  let tag = cipher.getAuthTag();
+
+  return Buffer.concat([pad, tag]);
+}
+
+function ccpDecrypt(k, n, ad, ciphertext) {
+  const decipher = chacha.createDecipher(k, n);
+  decipher.setAAD(ad);
+  decipher.setAuthTag(ciphertext);
+  return decipher.final();
 }
