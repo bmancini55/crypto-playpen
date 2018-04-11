@@ -20,12 +20,15 @@ class ChannelAnnouncement {
   static deserialize(payload) {
     let instance = new ChannelAnnouncement();
     let reader = BufferReader.from(payload);
-    instance.node_signature_1 = reader.readBytes(8);
-    instance.node_signature_2 = reader.readBytes(8);
-    instance.bitcoin_signature_1 = reader.readBytes(8);
-    instance.bitcoin_signature_2 = reader.readBytes(8);
+    instance.node_signature_1 = reader.readBytes(64);
+    instance.node_signature_2 = reader.readBytes(64);
+    instance.bitcoin_signature_1 = reader.readBytes(64);
+    instance.bitcoin_signature_2 = reader.readBytes(64);
 
-    let len = reader.readUInt16();
+    let len = reader.readUInt16BE();
+
+    console.log(payload.length, reader.position, len);
+
     instance.features = reader.readBytes(len);
     instance.chain_hash = reader.readBytes(4);
     instance.short_channel_id = reader.readUInt8();

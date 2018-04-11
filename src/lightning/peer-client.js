@@ -3,16 +3,18 @@ const winston = require('winston');
 const NoiseState = require('./noise-state');
 const { generateKey } = require('./key');
 const messages = require('./messages/message-factory');
+const MessageHandler = require('./message-handler');
 
 class PeerClient {
   constructor({ localSecret, remoteSecret, host, port = 9735 }) {
     let ephemeralSecret = generateKey();
     this.noiseState = new NoiseState({ ls: localSecret, rs: remoteSecret, es: ephemeralSecret });
+    this.messageHandler = new MessageHandler(this);
     this.host = host;
     this.port = port;
 
-    this.completedAct = 0;
     this._buffer = Buffer.alloc(0);
+    this.completedAct = 0;
 
     setInterval(this.ping.bind(this), 60000);
   }
@@ -41,7 +43,7 @@ class PeerClient {
   }
 
   async sendMessage(m) {
-    winston.debug('sending', m);
+    winston.debug('sending', JSON.stringify(m));
     m = m.serialize();
     m = await this.noiseState.encryptMessage(m);
     this.socket.write(m);
@@ -85,15 +87,29 @@ class PeerClient {
         await this.sendMessage(messages.construct(16));
         //
       } else if (this.completedAct === 3) {
-        let lc = this._buffer.slice(0, 18);
-        this._buffer = this._buffer.slice(18);
-        let l = await this.noiseState.decryptLength(lc);
+        let l = this.l;
+        this.l = undefined;
+
+        // check if we had a length from a prior chunk
+        if (!l) {
+          let lc = this._buffer.slice(0, 18);
+          this._buffer = this._buffer.slice(18);
+          l = await this.noiseState.decryptLength(lc);
+        }
+
+        // it will be in the next message
+        if (!this._buffer.length) {
+          this.l = l;
+          return;
+        }
 
         let c = this._buffer.slice(0, l + 16);
         this._buffer = this._buffer.slice(l + 16);
         let m = await this.noiseState.decryptMessage(c);
+
         m = messages.deserialize(m);
         winston.debug('received', JSON.stringify(m));
+        this.messageHandler.routeMessage(m);
       }
     } catch (err) {
       winston.error(err);

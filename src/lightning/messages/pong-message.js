@@ -1,23 +1,31 @@
+const BufferReader = require('../buffer-reader');
+const BufferWriter = require('../buffer-writer');
+
 class PongMessage {
   constructor() {
     this.type = 19;
-    this.byteslen = 0;
-    this.ignored = Buffer.alloc(0);
+    this.ignored;
   }
 
   static deserialize(payload) {
     let instance = new PongMessage();
-    instance.byteslen = payload.readUInt16BE(0);
-    instance.ignored = payload.slice(2);
+    let reader = BufferReader.from(payload);
+    let byteslen = reader.readUInt16BE();
+    instance.ignored = reader.readBytes(byteslen);
     return instance;
   }
 
   serialize() {
-    let result = Buffer.alloc(2 + 2 + this.byteslen);
-    result.writeUInt16BE(this.type, 0);
-    result.writeUInt16BE(this.byteslen, 2);
-    result.write(this.ignored, 4);
+    let result = Buffer.alloc(4 + this.ignored.length);
+    let writer = BufferWriter.from(result);
+    writer.writeUInt16BE(this.type);
+    writer.writeUInt16BE(this.ignored.length);
+    writer.writeBytes(this.ignored);
     return result;
+  }
+
+  createReply(num_pong_bytes) {
+    this.ignored = Buffer.alloc(num_pong_bytes);
   }
 }
 

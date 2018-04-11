@@ -28,19 +28,13 @@ class BufferWriter {
     this._writeStandard(this.writeUInt32BE.name, val, 4);
   }
 
-  copyBytes(srcBuffer, start = 0, end) {
-    let len = end !== undefined ? end - start : srcBuffer.length - start;
-    srcBuffer.copy(this.buffer, this.position, start, end);
-    this.position += len;
-  }
-
-  writeBytes(val) {
-    val.copy(this.buffer, this.position);
-    this.position += val.length;
+  writeBytes(buffer) {
+    buffer.copy(this.buffer, this.position);
+    this.position += buffer.length;
   }
 
   _writeStandard(fn, val, len) {
-    this.buffer[fn](this.position, val);
+    this.buffer[fn](val, this.position);
     this.position += len;
   }
 }
