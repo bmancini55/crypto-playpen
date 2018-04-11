@@ -1,3 +1,4 @@
+const winston = require('winston');
 const { sha256, ecdh, hkdf, ccpEncrypt, ccpDecrypt } = require('./crypto');
 const { mergeBufs } = require('./buffer');
 
@@ -20,6 +21,7 @@ class NoiseState {
   }
 
   async initialize() {
+    winston.debug('initialize noise state');
     this.h = sha256(Buffer.from(this.protocolName));
     this.ck = this.h;
     this.h = sha256(mergeBufs(this.h, this.prologue));
@@ -27,6 +29,7 @@ class NoiseState {
   }
 
   async initiatorAct1() {
+    winston.debug('initiator act1');
     this.h = sha256(mergeBufs(this.h, this.es.compressed()));
 
     let ss = ecdh(this.rs.pub, this.es.priv);
@@ -42,6 +45,7 @@ class NoiseState {
   }
 
   async initiatorAct2Act3(m) {
+    winston.debug('initiator act2');
     // ACT 2
 
     // 1. read exactly 50 bytes off the stream
@@ -73,6 +77,7 @@ class NoiseState {
     this.h = sha256(mergeBufs(this.h, c));
 
     // ACT 3
+    winston.debug('initiator act3');
     c = ccpEncrypt(
       temp_k2,
       Buffer.from([0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]),
@@ -108,6 +113,7 @@ class NoiseState {
   }
 
   async encryptMessage(m) {
+    winston.debug('encrypting message');
     // step 1/2. serialize m length into int16
     let l = Buffer.alloc(2);
     l.writeUInt16BE(m.length);

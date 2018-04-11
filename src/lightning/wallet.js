@@ -1,6 +1,6 @@
 const winston = require('winston');
 const bip39 = require('bip39');
-const bitcoin = require('bitcoinjs-lib');
+const bitcoin = require('bitcore-lib');
 const walletio = require('./wallet-io');
 
 class Wallet {
@@ -54,7 +54,7 @@ class Wallet {
 
   get rootAddress() {
     if (!this._rootAddress) {
-      this._rootAddress = bitcoin.HDNode.fromSeedBuffer(this.seed);
+      this._rootAddress = new bitcoin.HDPrivateKey(this.seed);
       winston.debug('root address', this._rootAddress.getAddress());
     }
     return this._rootAddress;

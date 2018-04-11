@@ -1,14 +1,17 @@
 const net = require('net');
 const winston = require('winston');
 const NoiseState = require('./noise-state');
+const { generateKey } = require('./key');
 
 class PeerClient {
-  constructor({ localSecret, remoteSecret, ephemeralSecret, host, port = 9735 }) {
+  constructor({ localSecret, remoteSecret, host, port = 9735 }) {
+    let ephemeralSecret = generateKey();
     this.noiseState = new NoiseState({ ls: localSecret, rs: remoteSecret, es: ephemeralSecret });
     this.host = host;
     this.port = port;
 
     this.completedAct = 0;
+    this._buffer = Buffer.alloc(0);
   }
 
   async connect() {
@@ -16,14 +19,21 @@ class PeerClient {
   }
 
   async _open() {
-    this.socket = net.connect({ host: this.host, port: this.port });
+    winston.debug('connecting to', this.host, this.port);
+    this.socket = net.connect({ host: this.host, port: this.port }, this._onConnected.bind(this));
     this.socket.on('error', this._onError.bind(this));
     this.socket.on('data', this._onData.bind(this));
-    this.socket.on('connected', this._onConnected.bind(this));
+    this.socket.on('timeout', this._onClose.bind(this));
+    this.socket.on('close', this._onClose.bind(this));
   }
 
   send(m) {
+    winston.debug('sending', m.toString('hex'));
     this.socket.write(m);
+  }
+
+  _onClose() {
+    winston.error('connection closed');
   }
 
   _onError(err) {
@@ -43,6 +53,7 @@ class PeerClient {
 
   async _onData(data) {
     try {
+      winston.debug('receiving', data.toString('hex'));
       // this should probably convert into a stream...
       this._buffer = Buffer.concat([this._buffer, data]);
 
