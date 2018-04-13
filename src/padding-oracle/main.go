@@ -11,9 +11,10 @@ const blockSize int = 16
 
 func main() {
 	cStr := "f20bdba6ff29eed7b046d1df9fb7000058b1ffb4210a580f748b4ac714c001bd4a61044426fb515dad3f21f18aa577c0bdf302936266926ff37dbf7035d5eeb4"
+	log.Printf(cStr)
+
 	c0, _ := hex.DecodeString(cStr)
 	blockCount := len(c0) / blockSize
-	log.Printf(cStr)
 
 	// store the decrypted info here
 	decrypted := make([]byte, len(c0))
@@ -22,9 +23,9 @@ func main() {
 	for blockIndex := blockCount - 2; blockIndex >= 0; blockIndex-- {
 		decryptedBlock := make([]byte, blockSize)
 
-		// decrement the positions in the block
+		// start at the last position in the block
+		// and decrement until the first byte
 		for pos := 15; pos >= 0; pos-- {
-			index := blockIndex*blockSize + pos
 
 			// we will use this to handle 200 responses when we
 			// are processing the padding.  if there are no successful
@@ -36,19 +37,33 @@ func main() {
 			// iterate all possible bytes
 			for g := 0; g < 256; g++ {
 
-				// copy the original message to a test buffer
+				// copy a chunk of the original message to a new buffer that we can mutate.
+				// this buffer will lop off the last block to allow us to do the padding oracle.
+				// for instance, if we are working on blockIndex 2, we have 4 blocks of data.
+				// since we are mutating blockIndex 2 to discover blockIndex 3.
 				c := make([]byte, (blockIndex+2)*16)
 				copy(c, c0[:(blockIndex+2)*16])
 
-				pad := 16 - pos
+				// take a slice of the current block to make mutation easier
+				block := c[blockIndex*16 : blockIndex*16+16]
 
-				c[index] ^= byte(g)
-				xorDecrypted(c[blockIndex*16:blockIndex*16+16], decryptedBlock)
-				xorPadding(c[index:index+pad], pad)
+				// modify the position by g
+				block[pos] ^= byte(g)
 
-				log.Printf(hex.EncodeToString(c))
+				// xor the decrypted values into their respected positions
+				xorDecrypted(block, decryptedBlock)
 
+				// xor the padding value from our position forward
+				// ie: if we are on pos 15, then we are looking for a padding
+				// value of 0x01.  if we are on 14, then we need 0x02 on 14, 15
+				// positions.
+				xorPadding(block[pos:], 16-pos)
+
+				// log.Printf(hex.EncodeToString(c))
+
+				// make the connection and return the result
 				result := attack(c)
+
 				// 404 when mac fails
 				// 403 when padding is incorrect
 				// 200 when success
