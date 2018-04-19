@@ -1,0 +1,26 @@
+{
+  "name": "crypto-playpen",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha \"src/**/*.spec.js\"",
+    "mocha": "mocha"
+  },
+  "keywords": [],
+  "author": "Brian Mancini <bmancini@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "big-integer": "^1.6.26",
+    "chacha": "^2.1.0",
+    "elliptic": "^6.4.0",
+    "hkdf": "0.0.2"
+  },
+  "devDependencies": {
+    "babel-eslint": "^8.0.2",
+    "chai": "^4.1.2",
+    "eslint": "^4.11.0",
+    "mocha": "^4.0.1",
+    "prettier": "^1.8.2"
+  }
+}
