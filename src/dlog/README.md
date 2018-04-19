@@ -1,4 +1,31 @@
-# meet-in-the-middle discrete log
+# Discrete Log
+
+This program will compute the discrete log modulo a prime `p`.
+
+Let `g` be some element in `Zp∗`. You are given `h` in `Zp*` such that `h = g^x` where `1 <= x <=
+2^40`. We need to find `x`.
+
+We will use a meet in the middle attack to reduce `2^40` to `2^20`.
+
+Let `B = 2^20`.
+
+`x base B` can be written as `x0 * B + x1` where `x0, x1` are in the range `[0, B-1]`.
+
+This can be rewritten as:
+
+```
+h = g^x in Zp
+h = g^(x0 * B + x1) in Zp
+h = (g^B)^x0 * g^x1 in Zp
+```
+
+Which can then be:
+
+```
+h/g^x1 = (g^B)^x0 in Zp
+```
+
+This creates the two sides, of which we can solve for and try to find equivalence!
 
 ```
 # Simple test
