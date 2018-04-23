@@ -24,23 +24,25 @@ function hasLength(buffers, len) {
 function readFromBuffers(buffers, len) {
   let result = Buffer.alloc(len);
   let position = 0;
-  let remaining = len;
-  while (buffers.length > 0 && result.length === len) {
+  let remaining = () => len - position;
+
+  while (buffers.length > 0 && position < len) {
     let buffer = buffers[0];
-    if (buffer.length > remaining) {
-      buffer.copy(result, position, 0, remaining);
-      buffers[0] = buffer.slice(0, remaining);
-      console.log('greater', result);
-    } else if (buffer.length === remaining) {
-      buffer.copy(result, position, 0, remaining);
+    if (buffer.length > remaining()) {
+      buffer.copy(result, position, 0, remaining());
+      buffers[0] = buffer.slice(remaining());
+      position += remaining();
+      console.log('>', buffers, remaining());
+    } else if (buffer.length === remaining()) {
+      buffer.copy(result, position, 0, remaining());
       buffers.shift();
-      console.log('equal', result);
+      position += remaining();
+      console.log('=', buffers, remaining());
     } else {
       buffer.copy(result, position, 0);
-      position += buffer.length - 1;
-      remaining -= buffer.length;
+      position += buffer.length;
       buffers.shift();
-      console.log('less', result, remaining);
+      console.log('<', buffers, remaining());
     }
   }
   return result;
