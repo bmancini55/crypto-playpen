@@ -14,9 +14,12 @@ module.exports = args => {
     type === undefined ||
     vout === undefined ||
     sendto === undefined ||
-    amount === undefined
-  )
-    throw new Error('invalid args');
+    amount === undefined ||
+    isNaN(amount)
+  ) {
+    require('./help')(args);
+    return;
+  }
 
   let key = wallet.load(walletName);
 
@@ -32,7 +35,8 @@ module.exports = args => {
       result = tx.raw(key, txid, vout, sendto, amount);
       break;
     default:
-      throw new Error('Unkown type');
+      require('./help')(args);
+      return;
   }
 
   console.log(result);
