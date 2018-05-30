@@ -8,6 +8,9 @@ module.exports = () => {
     case 'create':
       require('./cmds/create')(args);
       break;
+    case 'p2pkh':
+      require('./cmds/p2pkh')(args);
+      break;
     case 'p2wpkh':
       require('./cmds/p2wpkh')(args);
       break;
