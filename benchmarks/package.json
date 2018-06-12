@@ -1,0 +1,20 @@
+{
+  "name": "benchmarks",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Brian Mancini <bmancini@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "create-hash": "^1.2.0",
+    "elliptic": "^6.4.0",
+    "fast-sha256": "^1.1.0",
+    "hash.js": "^1.1.4",
+    "secp256k1": "^3.5.0",
+    "tiny-secp256k1": "^0.1.0"
+  }
+}
