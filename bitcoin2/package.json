@@ -1,0 +1,20 @@
+{
+  "name": "bitcoin2",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Brian Mancini <bmancini@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "bip69": "^2.1.4",
+    "bitcoin-ops": "^1.4.1",
+    "bitcoinjs-lib": "^4.0.3",
+    "bn.js": "^4.11.8",
+    "secp256k1": "^3.6.2",
+    "varuint-bitcoin": "^1.1.0"
+  }
+}
