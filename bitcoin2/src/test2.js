@@ -1,9 +1,15 @@
+/**
+ * This example is a bit raw on the tx building and attempts to use a less stateful mechanism
+ * than the txbuilder in bitcoinjs-lib.
+ */
+
 const bitcoin = require('bitcoinjs-lib');
 const OPS = require('bitcoin-ops');
 const secp256k1 = require('secp256k1');
 const { sha256, hash160 } = require('./crypto');
 const bip69 = require('bip69');
 const varuint = require('varuint-bitcoin');
+const BufferCursor = require('./buffer-cursor');
 
 let funding_txid = 'fd2105607605d2302994ffea703b09f66b6351816ee737a93e42a841ea20bbad';
 let funding_output_index = 0;
@@ -28,114 +34,88 @@ let remote_funding_pubkey = Buffer.from(
   'hex'
 );
 
-function verifuint(value, max) {
-  if (typeof value !== 'number') throw new Error('cannot write a non-number as a number');
-  if (value < 0) throw new Error('specified a negative value for writing an unsigned value');
-  if (value > max) throw new Error('RangeError: value out of range');
-  if (Math.floor(value) !== value) throw new Error('value has a fractional component');
-}
-function writeUInt64LE(buffer, value, offset) {
-  verifuint(value, 0x001fffffffffffff);
-  buffer.writeInt32LE(value & -1, offset);
-  buffer.writeUInt32LE(Math.floor(value / 0x100000000), offset + 4);
-  return offset + 8;
-}
-
-function varSliceSize(sliceLen) {
-  return varuint.encodingLength(sliceLen) + sliceLen;
-}
-
 function calcTxBytes(vins, vouts) {
   return (
     8 + // (hasWitnesses ? 10 : 8) +
     varuint.encodingLength(vins.length) +
     varuint.encodingLength(vouts.length) +
-    vins.map(vin => vin.script.length).reduce((sum, len) => sum + 40 + varSliceSize(len), 0) +
-    vouts.map(vout => vout.script.length).reduce((sum, len) => sum + 8 + varSliceSize(len), 0) +
+    vins
+      .map(vin => vin.script.length)
+      .reduce((sum, len) => sum + 40 + varuint.encodingLength(len) + len, 0) +
+    vouts
+      .map(vout => vout.script.length)
+      .reduce((sum, len) => sum + 8 + varuint.encodingLength(len) + len, 0) +
     0 // (hasWitnesses ? this.ins.reduce(function (sum, input) { return sum + vectorSize(input.witness) }, 0) : 0)
   );
 }
 
 function txToBuffer(buffer, tx) {
-  let offset = 0;
-  function writeSlice(slice) {
-    offset += slice.copy(buffer, offset);
-  }
-  function writeUInt32(i) {
-    offset = buffer.writeUInt32LE(i, offset);
-  }
-  function writeInt32(i) {
-    offset = buffer.writeInt32LE(i, offset);
-  }
-  function writeUInt64(i) {
-    offset = writeUInt64LE(buffer, i, offset);
-  }
-  function writeVarInt(i) {
-    varuint.encode(i, buffer, offset);
-    offset += varuint.encode.bytes;
-  }
-  function writeVarSlice(slice) {
-    writeVarInt(slice.length);
-    writeSlice(slice);
+  let cursor = new BufferCursor(buffer);
+
+  // version
+  cursor.writeInt32LE(tx.version);
+
+  // vin length
+  cursor.writeBytes(varuint.encode(tx.vins.length));
+
+  // vin
+  for (let vin of tx.vins) {
+    cursor.writeBytes(vin.hash);
+    cursor.writeUInt32LE(vin.index);
+    cursor.writeBytes(varuint.encode(vin.script.length));
+    cursor.writeBytes(vin.script);
+    cursor.writeUInt32LE(vin.sequence);
   }
 
-  writeInt32(tx.version);
+  // vout length
+  cursor.writeBytes(varuint.encode(tx.vouts.length));
 
-  writeVarInt(tx.vins.length);
+  // vouts
+  for (let vout of tx.vouts) {
+    cursor.writeUInt64LE(vout.value);
+    cursor.writeBytes(varuint.encode(vout.script.length));
+    cursor.writeBytes(vout.script);
+  }
 
-  tx.vins.forEach(function(txIn) {
-    writeSlice(txIn.hash);
-    writeUInt32(txIn.index);
-    writeVarSlice(txIn.script);
-    writeUInt32(txIn.sequence);
-  });
+  // locktime
+  cursor.writeUInt32LE(tx.locktime);
 
-  writeVarInt(tx.vouts.length);
-  tx.vouts.forEach(function(txOut) {
-    if (!txOut.valueBuffer) {
-      writeUInt64(txOut.value);
-    } else {
-      writeSlice(txOut.valueBuffer);
-    }
-
-    writeVarSlice(txOut.script);
-  });
-
-  writeUInt32(tx.locktime);
-
-  // avoid slicing unless necessary
   return buffer;
 }
 
-function signp2pkh(vins, vouts, privKey) {
+function signp2pkh(vindex, vins, vouts, privKey) {
   let hashType = 0x01; // SIGHASH_ALL
-  let filteredPrevOutScript = vins[0].script.filter(function(x) {
-    return x !== OPS.OP_CODESEPARATOR;
-  });
+  let filteredPrevOutScript = vins[vindex].script.filter(op => op !== OPS.OP_CODESEPARATOR);
 
-  vins[0].script = filteredPrevOutScript;
+  // replace the script
+  vins[vindex].script = filteredPrevOutScript;
 
-  // for (let vin of vouts) {
-  //   // remove all the vin values
-  // }
+  // zero out scripts of other inputs
+  for (let i = 0; i < vins.length; i++) {
+    if (i === vindex) continue;
+    vins[i].script = Buffer.alloc(0);
+  }
 
+  // calculate length of tx
   let byteLength = calcTxBytes(vins, vouts);
 
+  // allocate a buffer
   let buffer = Buffer.alloc(byteLength + 4);
-  buffer.writeInt32LE(hashType, buffer.length - 4);
 
+  // write to the buffer
   txToBuffer(buffer, { version: 2, locktime: 0, vins, vouts });
 
-  // console.log('signp2pkh');
-  // console.log('  buffer', buffer.length);
-  // console.log(buffer.toString('hex'));
+  // append the hash type
+  buffer.writeInt32LE(hashType, buffer.length - 4);
 
+  // double-sha256
   let hash = sha256(sha256(buffer));
-  // console.log('  hash');
-  // console.log(hash.toString('hex'));
 
+  // sign input
   let sig = secp256k1.sign(hash, privKey);
-  // console.log(sig);
+
+  // encode
+  // refer to: https://github.com/bitcoinjs/bitcoinjs-lib/blob/master/src/script_signature.js#L40
   return bitcoin.script.signature.encode(sig.signature, 0x01);
 }
 
@@ -188,11 +168,9 @@ function p2wshOutput(script, satoshis) {
   };
 }
 
-function toHex({ version = 2, locktime = 0, vins, vouts }) {
+function txToHex({ version = 2, locktime = 0, vins, vouts }) {
   let byteLength = calcTxBytes(vins, vouts);
-
   let buffer = Buffer.alloc(byteLength);
-
   return txToBuffer(buffer, { version, locktime, vins, vouts });
 }
 
@@ -219,15 +197,18 @@ let sortedInputs = [
 ];
 let sortedOutputs = bip69.sortOutputs([primaryOutputRaw2, changeOutputRaw2]);
 
-let sig = signp2pkh(sortedInputs, sortedOutputs, funding_privkey);
+let sig = signp2pkh(0, sortedInputs, sortedOutputs, funding_privkey);
 console.log('sig\n', sig.toString('hex'));
 
 // replace the previous scriptpubkey with the scriptsig
 sortedInputs[0].script = p2pkhInput(sig, funding_pubkey);
 
-let actual = toHex({ version: 2, locktime: 0, vins: sortedInputs, vouts: sortedOutputs }).toString(
-  'hex'
-);
+let actual = txToHex({
+  version: 2,
+  locktime: 0,
+  vins: sortedInputs,
+  vouts: sortedOutputs,
+}).toString('hex');
 
 let expected =
   '0200000001adbb20ea41a8423ea937e76e8151636bf6093b70eaff942930d20576600521fd000000006b48304502210090587b6201e166ad6af0227d3036a9454223d49a1f11839c1a362184340ef0240220577f7cd5cca78719405cbf1de7414ac027f0239ef6e214c90fcaab0454d84b3b012103535b32d5eb0a6ed0982a0479bbadc9868d9836f6ba94dd5a63be16d875069184ffffffff028096980000000000220020c015c4a6be010e21657068fc2e6a9d02b27ebe4d490a25846f7237f104d1a3cd20256d29010000001600143ca33c2e4446f4a305f23c80df8ad1afdcf652f900000000';
