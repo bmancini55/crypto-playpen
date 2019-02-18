@@ -148,18 +148,19 @@ function fromBase58Check(address) {
 //   return bs58check.encode(buffer);
 // }
 
+// refer to https://en.bitcoin.it/wiki/Transaction#General_format_of_a_Bitcoin_transaction_.28inside_a_block.29
 function calcTxBytes(vins, vouts) {
   return (
-    8 + // (hasWitnesses ? 10 : 8) +
+    4 + // version
     varuint.encodingLength(vins.length) +
-    varuint.encodingLength(vouts.length) +
     vins
       .map(vin => (vin.scriptSig ? vin.scriptSig.length : vin.script.length))
       .reduce((sum, len) => sum + 40 + varuint.encodingLength(len) + len, 0) +
+    varuint.encodingLength(vouts.length) +
     vouts
       .map(vout => vout.script.length)
       .reduce((sum, len) => sum + 8 + varuint.encodingLength(len) + len, 0) +
-    0 // (hasWitnesses ? this.ins.reduce(function (sum, input) { return sum + vectorSize(input.witness) }, 0) : 0)
+    4 // locktime
   );
 }
 
