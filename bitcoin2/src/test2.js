@@ -7,6 +7,7 @@ const bitcoin = require('bitcoinjs-lib');
 const OPS = require('bitcoin-ops');
 const secp256k1 = require('secp256k1');
 const { sha256, hash160 } = require('./crypto');
+const bip66 = require('bip66');
 const bip69 = require('bip69');
 const varuint = require('varuint-bitcoin');
 const BufferCursor = require('./buffer-cursor');
@@ -83,6 +84,28 @@ function txToBuffer(buffer, tx) {
   return buffer;
 }
 
+function toDER(x) {
+  let i = 0;
+  while (x[i] === 0) ++i;
+  if (i === x.length) return Buffer.alloc(1);
+  x = x.slice(i);
+  if (x[0] & 0x80) return Buffer.concat([Buffer.alloc(1), x], 1 + x.length);
+  return x;
+}
+
+// refer to: https://github.com/bitcoinjs/bitcoinjs-lib/blob/master/src/script_signature.js#L40
+function encodeSig(signature, hashType) {
+  const hashTypeMod = hashType & ~0x80;
+  if (hashTypeMod <= 0 || hashTypeMod >= 4) throw new Error('Invalid hashType ' + hashType);
+
+  const hashTypeBuffer = Buffer.from([hashType]);
+
+  const r = toDER(signature.slice(0, 32));
+  const s = toDER(signature.slice(32, 64));
+
+  return Buffer.concat([bip66.encode(r, s), hashTypeBuffer]);
+}
+
 function signp2pkh(vindex, vins, vouts, privKey) {
   let hashType = 0x01; // SIGHASH_ALL
   let filteredPrevOutScript = vins[vindex].script.filter(op => op !== OPS.OP_CODESEPARATOR);
@@ -115,8 +138,7 @@ function signp2pkh(vindex, vins, vouts, privKey) {
   let sig = secp256k1.sign(hash, privKey);
 
   // encode
-  // refer to: https://github.com/bitcoinjs/bitcoinjs-lib/blob/master/src/script_signature.js#L40
-  return bitcoin.script.signature.encode(sig.signature, 0x01);
+  return encodeSig(sig.signature, 0x01);
 }
 
 function p2pkhInput(sig, pubkey) {
