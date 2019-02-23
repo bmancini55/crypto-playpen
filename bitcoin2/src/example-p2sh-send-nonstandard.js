@@ -1,6 +1,6 @@
 const OPS = require('bitcoin-ops');
 const secp256k1 = require('secp256k1');
-const { sha256 } = require('./crypto');
+const { sha256, hash160 } = require('./crypto');
 const bip66 = require('bip66');
 const bs58check = require('bs58check');
 const varuint = require('varuint-bitcoin');
@@ -12,42 +12,55 @@ const BufferCursor = require('./buffer-cursor');
 // 1: create base tx
 let tx = { version: 2, locktime: 0, vins: [], vouts: [] };
 
-// 2: add input
+// 2: add inputs
+let privKey = Buffer.from(
+  '60226ca8fb12f6c8096011f36c5028f8b7850b63d495bc45ec3ca478a29b473d',
+  'hex'
+);
+let pubKey = secp256k1.publicKeyCreate(privKey);
 tx.vins.push({
-  txid: Buffer('cf8597868cec794f9995fad1fb1066f06433332bc56c399c189460e74b7c9dfe', 'hex'),
-  vout: 0,
-  hash: Buffer('cf8597868cec794f9995fad1fb1066f06433332bc56c399c189460e74b7c9dfe', 'hex').reverse(),
+  txid: Buffer('515ecb42cacefd5872c4cb5ee124702785137406f85195ba72d2a81bbfa70561', 'hex'),
+  vout: 1,
+  hash: Buffer('515ecb42cacefd5872c4cb5ee124702785137406f85195ba72d2a81bbfa70561', 'hex').reverse(),
   sequence: 0xffffffff,
-  script: null,
-  scriptSig: compileScript([
-    // solve the script
-    Buffer.from('pax_is_awesome!'),
-
-    // serialize the script, p2sh only allows push data
-    // this will also be evaluated against the input
-    compileScript([
-      OPS.OP_SHA256,
-      Buffer.from('253c853e2915f5979e3c6b248b028cc5e3b4e7be3d0884db6c3632fd85702def', 'hex'),
-      OPS.OP_EQUAL,
-    ]),
-  ]),
+  script: p2pkhScript(hash160(pubKey)),
+  scriptSig: null,
 });
 
 // 3: add output for new address
 tx.vouts.push({
-  script: p2pkhScript(fromBase58Check('myKLpz45CSfJzWbcXtammgHmNRZsnk2ocv').hash),
-  value: 8000, // 1000 fees
+  script: p2shScript(
+    hash160(
+      compileScript([
+        // prettier-ignore
+        OPS.OP_SHA256,
+        Buffer.from('253c853e2915f5979e3c6b248b028cc5e3b4e7be3d0884db6c3632fd85702def', 'hex'),
+        OPS.OP_EQUAL,
+      ])
+    )
+  ),
+  value: 9000,
 });
 
-// sign:
-// nope we don't need to since the input didn't require an actual signature!
+// 4: add output for change address
+tx.vouts.push({
+  script: p2pkhScript(hash160(pubKey)),
+  value: 11011000,
+});
 
-// 5: to hex
+// 5: now that tx is ready, sign and create script sig
+tx.vins[0].scriptSig = p2pkhScriptSig(signp2pkh(tx, 0, privKey, 0x1), pubKey);
+
+// 6: to hex
 let result = txToBuffer(tx).toString('hex');
 console.log(result);
+console.log(
+  result ===
+    '02000000016105a7bf1ba8d272ba9551f806741385277024e15ecbc47258fdceca42cb5e51010000006a47304402204ea84c567f2043b6bf677e60ba7f7f13d14b82c9367a5562038b5effd9db7fa602202093b23d7a9e0c0ce7668e75f7c5c674ba34555d9a7e38e94245b422a125d6a8012102e577d441d501cace792c02bfe2cc15e59672199e2195770a61fd3288fc9f934fffffffff02282300000000000017a9140714c97d999d7e3f1c68b015fec735b857e9064987b803a800000000001976a914c34015187941b20ecda9378bb3cade86e80d2bfe88ac00000000'
+);
 
-// bitcoin-cli -testnet sendrawtransaction 0200000001fe9d7c4be76094189c396cc52b333364f06610fbd1fa95994f79ec8c869785cf00000000340f7061785f69735f617765736f6d652123a820253c853e2915f5979e3c6b248b028cc5e3b4e7be3d0884db6c3632fd85702def87ffffffff01401f0000000000001976a914c34015187941b20ecda9378bb3cade86e80d2bfe88ac00000000
-// f039be9415e348f62743e6fcacfb7a9a00de4b92845e67d1153cd1fcdd1ee4f6
+// bitcoin-cli -testnet sendrawtransaction "02000000016105a7bf1ba8d272ba9551f806741385277024e15ecbc47258fdceca42cb5e51010000006a47304402204ea84c567f2043b6bf677e60ba7f7f13d14b82c9367a5562038b5effd9db7fa602202093b23d7a9e0c0ce7668e75f7c5c674ba34555d9a7e38e94245b422a125d6a8012102e577d441d501cace792c02bfe2cc15e59672199e2195770a61fd3288fc9f934fffffffff02282300000000000017a9140714c97d999d7e3f1c68b015fec735b857e9064987b803a800000000001976a914c34015187941b20ecda9378bb3cade86e80d2bfe88ac00000000"
+// txid: cf8597868cec794f9995fad1fb1066f06433332bc56c399c189460e74b7c9dfe
 
 ///////////////////////////////////////////////////////////
 
