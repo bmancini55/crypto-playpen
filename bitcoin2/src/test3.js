@@ -18,7 +18,7 @@ console.log(payment1.address);
 // non-segwit
 // address mrz1DDxeqypyabBs8N9y3Hybe2LEz2cYBu
 let pk2 = Buffer.from('eb2250715758f2d0b2a3ebe829f88399212cfa692ee8d7fc3bdb3a550c46e2b4', 'hex');
-let pair2 = bitcoin.ECPair.fromPrivateKey(pk2, { network: bitcoin.networks.testneset });
+let pair2 = bitcoin.ECPair.fromPrivateKey(pk2, { network: bitcoin.networks.testnet });
 let { address: address2 } = bitcoin.payments.p2pkh({
   pubkey: pair2.publicKey,
   network: bitcoin.networks.testnet,
@@ -188,7 +188,87 @@ function sendPayment5() {
   txb.addOutput('myKLpz45CSfJzWbcXtammgHmNRZsnk2ocv', send);
   txb.sign(0, pair1, p2pkh.output);
   let tx = txb.build();
-  console.log('spend p2sh(p2pkh)\n' + tx.toHex());
+  console.log('\nspend p2sh(p2pkh)\n' + tx.toHex());
 }
 
 // sendPayment5();
+
+function sendPayment6() {
+  let txb = new bitcoin.TransactionBuilder(bitcoin.networks.testnet);
+
+  // add p2pkh input
+  txb.addInput(
+    '0c17529882c7f63e7b9f12a5d227f00bfcf40e68fd45ff22d031734fadcf6b2d', // txid
+    0, // vout
+    null, // sequence
+    bitcoin.payments.p2pkh({
+      address: 'myKLpz45CSfJzWbcXtammgHmNRZsnk2ocv',
+      network: bitcoin.networks.testnet,
+    }).output // prevOutScript = p2pkhScript
+  );
+
+  // add p2sh(p2ms) output
+  let p2ms = bitcoin.payments.p2ms({
+    m: 2,
+    pubkeys: [
+      pair1.publicKey, // myKLpz45CSfJzWbcXtammgHmNRZsnk2ocv
+      pair2.publicKey, // mrz1DDxeqypyabBs8N9y3Hybe2LEz2cYBu
+    ],
+    network: bitcoin.networks.testnet,
+  });
+
+  let p2sh = bitcoin.payments.p2sh({
+    redeem: p2ms,
+    network: bitcoin.networks.testnet,
+  });
+  txb.addOutput(p2sh.address, 7000); // 1000 fees
+
+  // sign
+  txb.sign(0, pair1);
+
+  // output
+  let tx = txb.build();
+  console.log('\nsend p2sh(p2ms())\n' + tx.toHex());
+}
+
+sendPayment6();
+
+// bitcoin-cli -testnet sendrawtransaction 02000000012d6bcfad4f7331d022ff45fd680ef4fc0bf027d2a5129f7b3ef6c7829852170c000000006a473044022079dda6cab377bf443865982c59ee990202a4e29689b41d83ccb46a74b34a782f0220150ed5fcd97b1dcc22b43accae80bdf7c38858b863003dc755bf2d88b8095142012102e577d441d501cace792c02bfe2cc15e59672199e2195770a61fd3288fc9f934fffffffff01581b00000000000017a91451a92be9c57d4b865e69daad982c5ab6c1d7bea18700000000
+// txid = 430a9edf9fab4a32e1923c9b0f1327f2431dc41a12d6c123e3a5749a26daedb4
+
+function sendPayment7() {
+  let txb = new bitcoin.TransactionBuilder(bitcoin.networks.testnet);
+
+  // add p2sh(p2ms) input
+  txb.addInput(
+    '430a9edf9fab4a32e1923c9b0f1327f2431dc41a12d6c123e3a5749a26daedb4', // txid
+    0 // vout
+  );
+
+  // add p2sh(p2ms) output
+  txb.addOutput('myKLpz45CSfJzWbcXtammgHmNRZsnk2ocv', 6000); // 1000 fees
+
+  // sign
+  let p2ms = bitcoin.payments.p2ms({
+    m: 2,
+    pubkeys: [
+      pair1.publicKey, // myKLpz45CSfJzWbcXtammgHmNRZsnk2ocv
+      pair2.publicKey, // mrz1DDxeqypyabBs8N9y3Hybe2LEz2cYBu
+    ],
+    network: bitcoin.networks.testnet,
+  });
+
+  let p2sh = bitcoin.payments.p2sh({
+    redeem: p2ms,
+    network: bitcoin.networks.testnet,
+  });
+
+  txb.sign(0, pair1, p2sh.redeem.output);
+  txb.sign(0, pair2, p2sh.redeem.output);
+
+  // output
+  let tx = txb.build();
+  console.log('\nspend p2sh(p2ms())\n' + tx.toHex());
+}
+
+sendPayment7();
