@@ -128,52 +128,67 @@ function sendPayment3() {
 // bitcoin-cli -testnet sendrawtransaction "02000000016105a7bf1ba8d272ba9551f806741385277024e15ecbc47258fdceca42cb5e51010000006a47304402204ea84c567f2043b6bf677e60ba7f7f13d14b82c9367a5562038b5effd9db7fa602202093b23d7a9e0c0ce7668e75f7c5c674ba34555d9a7e38e94245b422a125d6a8012102e577d441d501cace792c02bfe2cc15e59672199e2195770a61fd3288fc9f934fffffffff02282300000000000017a9140714c97d999d7e3f1c68b015fec735b857e9064987b803a800000000001976a914c34015187941b20ecda9378bb3cade86e80d2bfe88ac00000000"
 // txid: cf8597868cec794f9995fad1fb1066f06433332bc56c399c189460e74b7c9dfe
 
-// bitcoin-cli -testnet decoderawtransaction "02000000016105a7bf1ba8d272ba9551f806741385277024e15ecbc47258fdceca42cb5e51010000006a47304402204ea84c567f2043b6bf677e60ba7f7f13d14b82c9367a5562038b5effd9db7fa602202093b23d7a9e0c0ce7668e75f7c5c674ba34555d9a7e38e94245b422a125d6a8012102e577d441d501cace792c02bfe2cc15e59672199e2195770a61fd3288fc9f934fffffffff02282300000000000017a9140714c97d999d7e3f1c68b015fec735b857e9064987b803a800000000001976a914c34015187941b20ecda9378bb3cade86e80d2bfe88ac00000000"
-// {
-//   "txid": "cf8597868cec794f9995fad1fb1066f06433332bc56c399c189460e74b7c9dfe",
-//   "hash": "cf8597868cec794f9995fad1fb1066f06433332bc56c399c189460e74b7c9dfe",
-//   "version": 2,
-//   "size": 223,
-//   "vsize": 223,
-//   "weight": 892,
-//   "locktime": 0,
-//   "vin": [
-//     {
-//       "txid": "515ecb42cacefd5872c4cb5ee124702785137406f85195ba72d2a81bbfa70561",
-//       "vout": 1,
-//       "scriptSig": {
-//         "asm": "304402204ea84c567f2043b6bf677e60ba7f7f13d14b82c9367a5562038b5effd9db7fa602202093b23d7a9e0c0ce7668e75f7c5c674ba34555d9a7e38e94245b422a125d6a8[ALL] 02e577d441d501cace792c02bfe2cc15e59672199e2195770a61fd3288fc9f934f",
-//         "hex": "47304402204ea84c567f2043b6bf677e60ba7f7f13d14b82c9367a5562038b5effd9db7fa602202093b23d7a9e0c0ce7668e75f7c5c674ba34555d9a7e38e94245b422a125d6a8012102e577d441d501cace792c02bfe2cc15e59672199e2195770a61fd3288fc9f934f"
-//       },
-//       "sequence": 4294967295
-//     }
-//   ],
-//   "vout": [
-//     {
-//       "value": 0.00009000,
-//       "n": 0,
-//       "scriptPubKey": {
-//         "asm": "OP_HASH160 0714c97d999d7e3f1c68b015fec735b857e90649 OP_EQUAL",
-//         "hex": "a9140714c97d999d7e3f1c68b015fec735b857e9064987",
-//         "reqSigs": 1,
-//         "type": "scripthash",
-//         "addresses": [
-//           "2MstfcwMMM1BtfkQJdzKHgZVuQ2cDpBfAaq"
-//         ]
-//       }
-//     },
-//     {
-//       "value": 0.11011000,
-//       "n": 1,
-//       "scriptPubKey": {
-//         "asm": "OP_DUP OP_HASH160 c34015187941b20ecda9378bb3cade86e80d2bfe OP_EQUALVERIFY OP_CHECKSIG",
-//         "hex": "76a914c34015187941b20ecda9378bb3cade86e80d2bfe88ac",
-//         "reqSigs": 1,
-//         "type": "pubkeyhash",
-//         "addresses": [
-//           "myKLpz45CSfJzWbcXtammgHmNRZsnk2ocv"
-//         ]
-//       }
-//     }
-//   ]
-// }
+function sendPayment4() {
+  let txid = 'b20a04213f72b626b8c488c01693af5f9c8b6241f1a9dca50264b3510fcb4e2a ';
+  let vout = 1;
+  let send = 9000;
+  let change = 1099000 - send - 1000;
+
+  let { output: prevScriptOut } = bitcoin.payments.p2pkh({
+    pubkey: pair1.publicKey,
+    network: bitcoin.networks.testnet,
+  });
+
+  let txb = new bitcoin.TransactionBuilder(bitcoin.networks.testnet);
+  txb.addInput(txid, vout, null, prevScriptOut); // standard p2pkh script
+
+  // p2ph(p2pkh)
+  let p2pkh = bitcoin.payments.p2pkh({
+    address: 'mrz1DDxeqypyabBs8N9y3Hybe2LEz2cYBu',
+    network: bitcoin.networks.testnet,
+  });
+  let p2sh = bitcoin.payments.p2sh({
+    redeem: p2pkh,
+    network: bitcoin.networks.testnet,
+  });
+  txb.addOutput(p2sh.output, send);
+
+  // standard p2pkh change
+  txb.addOutput('myKLpz45CSfJzWbcXtammgHmNRZsnk2ocv', change);
+
+  // sign
+  txb.sign(0, pair1);
+  let tx = txb.build();
+  console.log(tx.toHex());
+}
+
+// sendPayment4();
+
+// bitcoin-cli -testnet sendrawtransaction 02000000012a4ecb0f51b36402a5dca9f141628b9c5faf9316c088c4b826b6723f21040ab2010000006b483045022100b32b1faca26acb15b317935ae0e322adae9240ed3e5ee298da9a6c2c72ca67b1022010afc784f6e531d5b0c22c1b485f3f378e3ec68d67373f4874320f1e42782ff0012102e577d441d501cace792c02bfe2cc15e59672199e2195770a61fd3288fc9f934fffffffff02282300000000000017a914b0c48738b03497c8e000986046c280e621db077187e89d1000000000001976a914c34015187941b20ecda9378bb3cade86e80d2bfe88ac00000000
+// e975292df223bc5aded3b40a36430e153506c0a1e03aac7bb86c432244e2048f
+
+function sendPayment5() {
+  let txid = 'e975292df223bc5aded3b40a36430e153506c0a1e03aac7bb86c432244e2048f';
+  let vout = 0;
+  let send = 8000;
+
+  let p2pkh = bitcoin.payments.p2pkh({
+    pubkey: pair2.publicKey,
+    network: bitcoin.networks.testnet,
+  });
+
+  let p2sh = bitcoin.payments.p2sh({
+    redeem: p2pkh,
+    network: bitcoin.networks.testnet,
+  });
+
+  let txb = new bitcoin.TransactionBuilder(bitcoin.networks.testnet);
+  txb.addInput(txid, vout, null, p2sh.output); // standard p2pkh script
+
+  txb.addOutput('myKLpz45CSfJzWbcXtammgHmNRZsnk2ocv', send);
+  txb.sign(0, pair1, p2pkh.output);
+  let tx = txb.build();
+  console.log('spend p2sh(p2pkh)\n' + tx.toHex());
+}
+
+// sendPayment5();
