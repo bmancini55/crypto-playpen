@@ -9,14 +9,28 @@ const BufferCursor = require('./buffer-cursor');
 
 ////////////////////////////////////////////////////////////
 
+// myKLpz45CSfJzWbcXtammgHmNRZsnk2ocv
+let privKey1 = Buffer.from(
+  '60226ca8fb12f6c8096011f36c5028f8b7850b63d495bc45ec3ca478a29b473d',
+  'hex'
+);
+let pubKey1 = secp256k1.publicKeyCreate(privKey1);
+
+// mrz1DDxeqypyabBs8N9y3Hybe2LEz2cYBu
+let privKey2 = Buffer.from(
+  'eb2250715758f2d0b2a3ebe829f88399212cfa692ee8d7fc3bdb3a550c46e2b4',
+  'hex'
+);
+let pubKey2 = secp256k1.publicKeyCreate(privKey2);
+
 // 1: create base tx
 let tx = { version: 2, locktime: 0, vins: [], vouts: [] };
 
 // 2: add input
 tx.vins.push({
-  txid: Buffer('0c17529882c7f63e7b9f12a5d227f00bfcf40e68fd45ff22d031734fadcf6b2d', 'hex'),
+  txid: Buffer.from('0c17529882c7f63e7b9f12a5d227f00bfcf40e68fd45ff22d031734fadcf6b2d', 'hex'),
   vout: 0,
-  hash: Buffer('0c17529882c7f63e7b9f12a5d227f00bfcf40e68fd45ff22d031734fadcf6b2d', 'hex').reverse(),
+  hash: Buffer.from('0c17529882c7f63e7b9f12a5d227f00bfcf40e68fd45ff22d031734fadcf6b2d', 'hex').reverse(), // prettier-ignore
   sequence: 0xffffffff,
   script: p2pkhScript(fromBase58Check('myKLpz45CSfJzWbcXtammgHmNRZsnk2ocv').hash),
   scriptSig: null,
@@ -26,40 +40,20 @@ tx.vins.push({
 tx.vouts.push({
   script: p2shScript(
     hash160(
-      p2msScript(
-        2,
-        2,
-        [
-          secp256k1.publicKeyCreate(Buffer.from('60226ca8fb12f6c8096011f36c5028f8b7850b63d495bc45ec3ca478a29b473d', 'hex')), // myKLpz45CSfJzWbcXtammgHmNRZsnk2ocv
-          secp256k1.publicKeyCreate(Buffer.from('eb2250715758f2d0b2a3ebe829f88399212cfa692ee8d7fc3bdb3a550c46e2b4', 'hex')), // mrz1DDxeqypyabBs8N9y3Hybe2LEz2cYBu
-        ]
-      )
-    )
+      p2msScript(2, 2, [pubKey1, pubKey2]))
   ), // prettier-ignore
   value: 7000,
 });
 
-console.log(
-  'p2ms\n',
-  p2msScript(
-    2,
-    2,
-    [
-      secp256k1.publicKeyCreate(Buffer.from('60226ca8fb12f6c8096011f36c5028f8b7850b63d495bc45ec3ca478a29b473d', 'hex')), // myKLpz45CSfJzWbcXtammgHmNRZsnk2ocv
-      secp256k1.publicKeyCreate(Buffer.from('eb2250715758f2d0b2a3ebe829f88399212cfa692ee8d7fc3bdb3a550c46e2b4', 'hex')), // mrz1DDxeqypyabBs8N9y3Hybe2LEz2cYBu
-    ]
-  ).toString('hex')
-); // prettier-ignore
-
-// 5: now that tx is ready, sign and create script sig
+// 4: now that tx is ready, sign and create script sig
 let privKey = Buffer.from(
   '60226ca8fb12f6c8096011f36c5028f8b7850b63d495bc45ec3ca478a29b473d',
   'hex'
 );
 let pubKey = secp256k1.publicKeyCreate(privKey);
-tx.vins[0].scriptSig = p2pkhScriptSig(signp2pkh(tx, 0, privKey, 0x01), pubKey);
+tx.vins[0].scriptSig = compileScript([signInput(tx, 0, privKey, 0x01), pubKey]);
 
-// 6: to hex
+// 5: to hex
 let result = txToBuffer(tx).toString('hex');
 console.log(result);
 console.log(
@@ -246,7 +240,7 @@ function encodeSig(signature, hashType) {
 
 /////////////////////////////////////////
 
-function signp2pkh(tx, vindex, privKey, hashType = 0x01) {
+function signInput(tx, vindex, privKey, hashType = 0x01) {
   let clone = cloneTx(tx);
 
   // clean up relevant script
@@ -276,10 +270,6 @@ function signp2pkh(tx, vindex, privKey, hashType = 0x01) {
 
   // encode
   return encodeSig(sig.signature, hashType);
-}
-
-function p2pkhScriptSig(sig, pubkey) {
-  return compileScript([sig, pubkey]);
 }
 
 // Refer to:
