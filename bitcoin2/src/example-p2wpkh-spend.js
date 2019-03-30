@@ -1,6 +1,6 @@
 const OPS = require('bitcoin-ops');
 const secp256k1 = require('secp256k1');
-const { sha256, hash256 } = require('./crypto');
+const { sha256, hash256, hash160 } = require('./crypto');
 const bip66 = require('bip66');
 const bs58check = require('bs58check');
 const bech32 = require('bech32');
@@ -32,6 +32,7 @@ tx.vouts.push({
 // 4. attach witness data to input 0
 let privKey1 = Buffer.from('bccb30842073b011b3463c0a52ec30bdadbf5b5c289c6d5f37af4e3528de73ff', 'hex'); // prettier-ignore
 let pubKey1 = secp256k1.publicKeyCreate(privKey1);
+// tb1qeakm4zty44k7t63jcjzcjkaj6rylma92m6mtt9
 
 // let hash = hashForWitnessV0(tx, 0, 10000, 0x01);
 // console.log('hash\n', hash.toString('hex'));
@@ -153,6 +154,14 @@ function fromBase58Check(address) {
   return { version, hash };
 }
 
+// refer to https://github.com/bitcoinjs/bitcoinjs-lib/blob/master/src/address.js
+function toBase58Check(privKey, version = 0x6f) {
+  let buffer = Buffer.alloc(21);
+  buffer.writeInt8(version);
+  hash160(secp256k1.publicKeyCreate(privKey)).copy(buffer, 1);
+  return bs58check.encode(buffer);
+}
+
 // refer to https://github.com/bitcoinjs/bitcoinjs-lib/blob/master/src/address.js#L23
 function fromBech32(address) {
   let decoded = bech32.decode(address);
@@ -165,13 +174,12 @@ function fromBech32(address) {
   };
 }
 
-// refer to https://github.com/bitcoinjs/bitcoinjs-lib/blob/master/src/address.js
-// function toBase58Check(privKey, version = 0x6f) {
-//   let buffer = Buffer.alloc(21);
-//   buffer.writeInt8(version);
-//   hash160(secp256k1.publicKeyCreate(privKey)).copy(buffer, 1);
-//   return bs58check.encode(buffer);
-// }
+function toBech32(privKey, version, prefix) {
+  let hash160Pubkey = hash160(secp256k1.publicKeyCreate(privKey));
+  let words = bech32.toWords(hash160Pubkey);
+  words.unshift(version);
+  return bech32.encode(prefix, words);
+}
 
 // refer to https://en.bitcoin.it/wiki/Transaction#General_format_of_a_Bitcoin_transaction_.28inside_a_block.29
 function calcTxBytes(vins, vouts) {
