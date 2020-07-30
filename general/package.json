@@ -13,7 +13,7 @@
   "dependencies": {
     "big-integer": "^1.6.26",
     "chacha": "^2.1.0",
-    "elliptic": "^6.4.0",
+    "elliptic": "^6.5.3",
     "hkdf": "0.0.2"
   },
   "devDependencies": {
