@@ -14,7 +14,7 @@
     "bip39": "^2.4.0",
     "bitcore-lib": "^0.15.0",
     "chacha": "^2.1.0",
-    "elliptic": "^6.4.0",
+    "elliptic": "^6.5.4",
     "hkdf": "0.0.2",
     "prompt-promise": "^1.0.3",
     "winston": "^2.4.1"
