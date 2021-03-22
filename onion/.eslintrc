@@ -1,0 +1,21 @@
+{
+	"parser": "@typescript-eslint/parser",
+
+	"env": {
+		"browser": false,
+		"node": true,
+		"mocha": true,
+		"es6": true
+	},
+	"plugins": ["@typescript-eslint"],
+	"extends": [
+		"eslint:recommended",
+		"plugin:@typescript-eslint/recommended"
+	],
+	"rules": {
+		"no-console": 1,
+		"quotes": [2, "double"],
+		"semi": [2, "always"],
+		"sort-imports": 1
+	}
+}
