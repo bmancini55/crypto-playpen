@@ -13,7 +13,7 @@
 		"plugin:@typescript-eslint/recommended"
 	],
 	"rules": {
-		"no-console": 1,
+		"no-console": 0,
 		"quotes": [2, "double"],
 		"semi": [2, "always"],
 		"sort-imports": 1
