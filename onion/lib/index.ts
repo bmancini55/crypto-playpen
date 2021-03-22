@@ -1,12 +1,14 @@
 import * as crypto from "@node-lightning/crypto";
-import { buildSimple } from "./buildSimple";
+import { buildSimple, readSimple } from "./buildSimple";
 
-const nodes = [
-  crypto.getPublicKey(Buffer.alloc(32, 0x01), true),
-  crypto.getPublicKey(Buffer.alloc(32, 0x02), true),
-  crypto.getPublicKey(Buffer.alloc(32, 0x03), true),
-  crypto.getPublicKey(Buffer.alloc(32, 0x04), true),
+const nodeSecrets = [
+  Buffer.alloc(32, 0x01),
+  Buffer.alloc(32, 0x02),
+  Buffer.alloc(32, 0x03),
+  Buffer.alloc(32, 0x04),
 ];
+
+const nodes = nodeSecrets.map((p) => crypto.getPublicKey(p, true));
 
 const data = [
   Buffer.alloc(4, 0x01),
@@ -17,5 +19,8 @@ const data = [
 
 const seed = Buffer.alloc(32, 0x05);
 
-console.log("SIMPLE EXAMPLE");
-buildSimple(seed, nodes, data);
+const packet = buildSimple(seed, nodes, data);
+
+console.log("Reading");
+console.log("");
+readSimple(packet, nodeSecrets);
