@@ -23,7 +23,9 @@ export function build(info: Buffer[]): Buffer {
     console.log("data  ", currentHopData.toString("hex"));
 
     // Prepend the current hop information to the existing information
-    lastHopData = Buffer.concat([currentHopData, lastHopData]);
+    const len = Buffer.alloc(1);
+    len.writeUInt8(currentHopData.length);
+    lastHopData = Buffer.concat([len, currentHopData, lastHopData]);
     console.log("onion ", lastHopData.toString("hex"));
     console.log("");
   }
@@ -45,11 +47,14 @@ export function build(info: Buffer[]): Buffer {
  */
 export function read(packet: Buffer): Buffer {
   // Read this hop's info from the front of the packet
-  const data = packet.slice(0, 4);
+  const len = packet.readUInt8(0);
+  console.log("len   ", len);
+
+  const data = packet.slice(1, 5);
   console.log("data  ", data.toString("hex"));
   console.log("");
 
   // Forward the remainder of the packet to the next
-  const remainder = packet.slice(4);
+  const remainder = packet.slice(5);
   return remainder;
 }
