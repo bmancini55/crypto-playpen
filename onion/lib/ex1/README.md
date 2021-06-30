@@ -12,22 +12,22 @@ There is no privacy because you can see how many hops exist in the path.
 
 ## Building
 
-If you have data parts `11111111` and `22222222` for hops 1 and 2
-respectively...
+If you have data parts that are each 4-bytes: `11111111` and `22222222`
+for hops 1 and 2 respectively...
 
-Inner onion: `2222222`
-Outer onion: `11111111` + `22222222`
+Inner onion: `0422222222`
+Outer onion: `0411111111` + `0422222222`
 
 ## Reading
 
-To read is quite simple. Each hop reads the data (which is fixed
-length in this example) from the front of the packet. Removes its
-data from the packet, and forwards on the remainder of the data.
+To read is quite simple. Each hop strips and reads the length byte and
+associated data from the front of the packet. It then forwards the
+remainder of the data.
 
-Hop1 input: `1111111122222222`
-Hop1 extracts: `11111111`
-Hop1 forwards: `22222222`
+Hop1 input: `04111111110422222222`
+Hop1 extracts: `0411111111`
+Hop1 forwards: `0422222222`
 
-Hop2 input: `22222222`
-Hop2 extracts: `22222222`
-Hop2 forwrds: N/A
+Hop2 input: `0422222222`
+Hop2 extracts: `0422222222`
+Hop2 forwards: N/A
