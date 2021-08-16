@@ -1,3 +1,4 @@
+import { BufferWriter } from "@node-lightning/bufio";
 import * as crypto from "@node-lightning/crypto";
 
 import * as ex1 from "./ex1";
@@ -23,9 +24,9 @@ const data = [
 
 const seed = Buffer.alloc(32, 0x05);
 
-let title;
-let builder;
-let reader;
+let title: string;
+let builder: (version: number, data: Buffer[], seed?: Buffer, nodeIds?: Buffer[]) => Buffer;
+let reader: (packet: Buffer, nodeKeys?: Buffer[]) => Buffer;
 
 switch (method) {
   case "ex1": {
@@ -48,12 +49,15 @@ console.log("==================================================================\
 console.log("Building");
 console.log("");
 
-let packet = builder(data, seed, nodeIds);
+const version = 0;
+let packetBuf = builder(version, data, seed, nodeIds);
+console.log("Final onion:");
+console.log(packetBuf.toString("hex"));
 
 console.log("------------------------------------------------------------------\n");
 console.log("Reading");
 console.log("");
 
 do {
-  packet = reader(packet, nodeSecrets);
-} while (packet && packet.length);
+  packetBuf = reader(packetBuf, nodeSecrets);
+} while (packetBuf && packetBuf.length);

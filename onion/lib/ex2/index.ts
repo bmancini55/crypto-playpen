@@ -107,7 +107,7 @@ export function read(packet: Buffer, nodeKeys: Buffer[]): Buffer {
  * @param nodeIds - list of 33-byte public keys for each node to route
  * through
  */
-export function build(info: Buffer[], ephemeralSecret: Buffer, nodeIds: Buffer[]): Buffer {
+export function build(version: number, info: Buffer[], ephemeralSecret: Buffer, nodeIds: Buffer[]): Buffer {
   // Construct a single ephemeral point that will be used for each hop as
   // a simplification.
   const ephemeralPoint = crypto2.getPublicKey(ephemeralSecret, true);
@@ -168,7 +168,7 @@ export function build(info: Buffer[], ephemeralSecret: Buffer, nodeIds: Buffer[]
     const packetWriter = new BufferWriter();
 
     // We always use version 0 for the onion packet version
-    packetWriter.writeUInt8(0);
+    packetWriter.writeUInt8(version);
 
     // Ephemeral point that is the same for each hop. Future example
     // will rotate this value.
